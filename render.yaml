@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: recibos-com-assinatura
+    env: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      - key: PORT
+        value: 3333
+    disk:
+      name: recibos-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
