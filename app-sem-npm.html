@@ -294,12 +294,13 @@
       </div>
 
       <form id="form" class="receipt-mode-only work-area">
-        <label><span>Nome</span><input id="personName" list="people" required></label>
-        <label><span>CPF</span><input id="personCpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"></label>
+        <label><span>Nome</span><input id="personName" list="people" autocomplete="off" required></label>
+        <label><span>CPF</span><input id="personCpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" required></label>
         <label class="wide"><span>Datas trabalhadas, início e fim da jornada (até 8)</span><div id="workDates" class="date-group"></div></label>
         <label><span>Valor</span><input id="amount" type="number" min="0" step="0.01" required></label>
         <label><span>Manhãs</span><input id="morningDays" type="number" min="0" value="0" required></label>
         <label><span>Tardes</span><input id="afternoonDays" type="number" min="0" value="0" required></label>
+        <label><span>Noites</span><input id="nightDays" type="number" min="0" value="0" required></label>
         <label><span>Setor</span><select id="sectorName" required></select></label>
         <label><span>Responsável</span><input id="contractorName" list="contractors" required></label>
         <label class="wide"><span>Motivo do pagamento</span><textarea id="paymentReason" required></textarea></label>
@@ -454,8 +455,10 @@
           }));
         }
         if (!receipt.issuedAt) receipt.issuedAt = receipt.createdAt || new Date().toISOString();
+        receipt.nightDays = Number(receipt.nightDays || 0);
         receipt.canceled = Boolean(receipt.canceled);
       });
+      syncPeopleFromReceipts();
       localStorage.setItem(KEY, JSON.stringify(db));
       saveRemoteData();
     }
@@ -535,6 +538,28 @@
       if (clean && !db[listName].some((item) => item.toLowerCase() === clean.toLowerCase())) db[listName].push(clean);
       db[listName].sort((a, b) => a.localeCompare(b, "pt-BR"));
       return clean;
+    }
+
+    function cpfByPersonName() {
+      const map = new Map();
+      [...db.receipts].reverse().forEach((receipt) => {
+        const name = String(receipt.personName || "").trim().toLowerCase();
+        const cpf = formatCpf(receipt.personCpf || "");
+        if (name && cpf) map.set(name, cpf);
+      });
+      return map;
+    }
+
+    function fillCpfFromHistory() {
+      const name = $("personName").value.trim().toLowerCase();
+      const cpf = cpfByPersonName().get(name);
+      if (cpf) $("personCpf").value = cpf;
+    }
+
+    function syncPeopleFromReceipts() {
+      db.receipts.forEach((receipt) => {
+        if (receipt.personName) uniqAdd("people", receipt.personName);
+      });
     }
 
     function selected() {
@@ -620,8 +645,8 @@
       row.className = "date-row";
       row.innerHTML = `
         <input type="date" value="${escapeHtml(value)}" required title="Data trabalhada">
-        <input type="time" value="${escapeHtml(startTime)}" title="Hora de início">
-        <input type="time" value="${escapeHtml(endTime)}" title="Hora final">
+        <input type="time" value="${escapeHtml(startTime)}" required title="Hora de início">
+        <input type="time" value="${escapeHtml(endTime)}" required title="Hora final">
         <button class="secondary" type="button">${count === 0 ? "+" : "Remover"}</button>
       `;
       const button = row.querySelector("button");
@@ -673,6 +698,8 @@
       resetWorkDates();
       $("morningDays").value = 0;
       $("afternoonDays").value = 0;
+      $("nightDays").value = 0;
+      $("sectorName").value = "";
       $("form").querySelector(".submit").textContent = "Criar recibo";
     }
 
@@ -687,6 +714,7 @@
       $("amount").value = ((receipt.amountCents || 0) / 100).toFixed(2);
       $("morningDays").value = receipt.morningDays || 0;
       $("afternoonDays").value = receipt.afternoonDays || 0;
+      $("nightDays").value = receipt.nightDays || 0;
       $("sectorName").value = receipt.sectorName || "";
       $("contractorName").value = receipt.contractorName || "";
       $("paymentReason").value = receipt.paymentReason || "";
@@ -722,7 +750,7 @@
           <div class="full-row"><dt>Motivo do pagamento</dt><dd>${escapeHtml(r.paymentReason)}</dd></div>
           <div><dt>Setor</dt><dd>${escapeHtml(r.sectorName)}</dd></div>
           <div><dt>Responsável pela contratação</dt><dd>${escapeHtml(r.contractorName)}</dd></div>
-          <div><dt>Períodos trabalhados</dt><dd>${r.morningDays} manhã(s) e ${r.afternoonDays} tarde(s)</dd></div>
+          <div><dt>Períodos trabalhados</dt><dd>${r.morningDays} manhã(s), ${r.afternoonDays} tarde(s) e ${r.nightDays || 0} noite(s)</dd></div>
           <div><dt>Status da assinatura</dt><dd>${r.signature ? "Assinado eletronicamente" : "Pendente"}</dd></div>
           <div><dt>Status do recibo</dt><dd>${r.canceled ? "Cancelado" : "Válido"}</dd></div>
         </dl>
@@ -749,9 +777,18 @@
       $(id).innerHTML = values.map((value) => `<option value="${escapeHtml(value)}"></option>`).join("");
     }
 
+    function renderPeopleDatalist() {
+      const cpfMap = cpfByPersonName();
+      $("people").innerHTML = db.people.map((value) => {
+        const cpf = cpfMap.get(String(value).trim().toLowerCase());
+        const label = cpf ? ` CPF ${cpf}` : "";
+        return `<option value="${escapeHtml(value)}" label="${escapeHtml(label)}"></option>`;
+      }).join("");
+    }
+
     function renderSectorSelect(id, firstLabel = "") {
       const current = $(id).value;
-      const first = firstLabel ? `<option value="">${firstLabel}</option>` : "";
+      const first = firstLabel || id === "sectorName" ? `<option value="">${firstLabel || "Selecione"}</option>` : "";
       $(id).innerHTML = first + db.sectors.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
       if ([...$(id).options].some((option) => option.value === current)) $(id).value = current;
     }
@@ -821,7 +858,7 @@
     }
 
     function render() {
-      renderDatalist("people", db.people);
+      renderPeopleDatalist();
       renderDatalist("sectors", db.sectors);
       renderDatalist("contractors", db.contractors);
       renderSectorSelect("sectorName");
@@ -858,7 +895,22 @@
       event.preventDefault();
       const workPeriods = currentWorkPeriods();
       const workDates = workPeriods.map((period) => period.date);
+      const requiredFields = [
+        ["Nome", $("personName").value],
+        ["CPF", $("personCpf").value],
+        ["Valor", $("amount").value],
+        ["Manhãs", $("morningDays").value],
+        ["Tardes", $("afternoonDays").value],
+        ["Noites", $("nightDays").value],
+        ["Setor", $("sectorName").value],
+        ["Responsável", $("contractorName").value],
+        ["Motivo do pagamento", $("paymentReason").value]
+      ];
+      const missing = requiredFields.find(([, value]) => String(value || "").trim() === "");
+      if (missing) return alert(`Preencha o campo ${missing[0]}.`);
+      if (formatCpf($("personCpf").value).replace(/\D/g, "").length !== 11) return alert("Informe um CPF completo com 11 números.");
       if (!workDates.length) return alert("Informe pelo menos uma data trabalhada.");
+      if (workPeriods.some((period) => !period.startTime || !period.endTime)) return alert("Informe hora de início e hora final em todas as datas trabalhadas.");
       const existing = editId ? db.receipts.find((item) => item.id === editId) : null;
       if (editId && !canEditReceipt(existing)) {
         alert("Este recibo não pode mais ser editado.");
@@ -879,6 +931,7 @@
         amountCents: Math.round(Number($("amount").value.replace(",", ".")) * 100),
         morningDays: Number($("morningDays").value || 0),
         afternoonDays: Number($("afternoonDays").value || 0),
+        nightDays: Number($("nightDays").value || 0),
         printedAt: "",
         issuedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -897,6 +950,7 @@
           amountCents: receipt.amountCents,
           morningDays: receipt.morningDays,
           afternoonDays: receipt.afternoonDays,
+          nightDays: receipt.nightDays,
           editedAt: new Date().toISOString(),
           editedBy: currentUser.login
         });
@@ -911,6 +965,8 @@
       resetWorkDates();
       $("morningDays").value = 0;
       $("afternoonDays").value = 0;
+      $("nightDays").value = 0;
+      $("sectorName").value = "";
       $("form").querySelector(".submit").textContent = "Criar recibo";
       save();
     };
@@ -1091,6 +1147,8 @@
     $("personCpf").oninput = (event) => {
       event.target.value = formatCpf(event.target.value);
     };
+    $("personName").oninput = fillCpfFromHistory;
+    $("personName").onchange = fillCpfFromHistory;
     $("q").oninput = render;
     $("filterDate").oninput = render;
     $("filterSector").onchange = render;
