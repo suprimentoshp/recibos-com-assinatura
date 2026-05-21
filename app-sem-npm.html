@@ -105,6 +105,13 @@
     .grid .full-row { grid-column: 1 / -1; }
     .grid dt { color: var(--muted); font-size: .8rem; font-weight: 800; text-transform: uppercase; }
     .grid dd { font-size: 1rem; font-weight: 700; margin: 5px 0 0; }
+    .calculation-table { border-collapse: collapse; margin-top: 18px; width: 100%; }
+    .calculation-table th,
+    .calculation-table td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; }
+    .calculation-table th { background: #f4f8fa; color: var(--muted); font-size: .78rem; text-transform: uppercase; }
+    .calculation-table td:last-child,
+    .calculation-table th:last-child { text-align: right; width: 28%; }
+    .calculation-table .calculation-total td { color: var(--primary); font-weight: 900; }
     .signature-area {
       align-items: center; border-top: 1px solid var(--line); display: grid; gap: 8px; justify-items: center;
       margin-top: 36px; min-height: 150px; padding-top: 18px; text-align: center;
@@ -189,6 +196,9 @@
       .grid div { padding: 8px 10px; }
       .grid dt { font-size: 9px; }
       .grid dd { font-size: 12px; }
+      .calculation-table { font-size: 11px; margin-top: 12px; }
+      .calculation-table th,
+      .calculation-table td { padding: 5px 6px; }
       .signature-area { margin-top: 24px; min-height: 120px; padding-top: 14px; }
       .receipt-text { font-size: 12px; }
       body.print-report aside,
@@ -761,6 +771,47 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
+    function receiptCalculations(amountCents) {
+      const base = Number(amountCents || 0);
+      const fgts = Math.round(base * 0.08);
+      const fgtsHalf = Math.round(fgts * 0.5);
+      const thirteenth = Math.round(base / 12);
+      const vacation = Math.round(base / 12);
+      const vacationBonus = Math.round(vacation / 3);
+      const total = base + fgts + fgtsHalf + thirteenth + vacation + vacationBonus;
+      return [
+        ["VALOR DO DIA TRABALHADO", base],
+        ["FGTS REFERENTE AO DIA", fgts],
+        ["50% SOBRE FGTS", fgtsHalf],
+        ["13º SAL. PROP. REF. AO DIA TRABALHADO", thirteenth],
+        ["FÉRIAS PROPORCIONAIS", vacation],
+        ["ADICIONAL DE FÉRIAS", vacationBonus],
+        ["TOTAL", total]
+      ];
+    }
+
+    function receiptCalculationTable(amountCents) {
+      const rows = receiptCalculations(amountCents);
+      return `
+        <table class="calculation-table">
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Valor calculado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(([label, value], index) => `
+              <tr class="${index === rows.length - 1 ? "calculation-total" : ""}">
+                <td>${escapeHtml(label)}</td>
+                <td>${money(value)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
     function receiptHtml(r) {
       if (!r) {
         $("receipt").classList.remove("canceled");
@@ -790,6 +841,7 @@
           <div><dt>Status da assinatura</dt><dd>${r.signature ? "Assinado eletronicamente" : "Pendente"}</dd></div>
           <div><dt>Status do recibo</dt><dd>${r.canceled ? "Cancelado" : "Válido"}</dd></div>
         </dl>
+        ${receiptCalculationTable(r.amountCents)}
         <footer class="signature-area">
           ${r.signature ? `
             <img src="${r.signature.imageData}" alt="Assinatura eletrônica">
