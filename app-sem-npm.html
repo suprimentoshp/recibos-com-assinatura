@@ -775,7 +775,7 @@
       const base = Number(amountCents || 0);
       const fgts = Math.round(base * 0.08);
       const fgtsHalf = Math.round(fgts * 0.5);
-      const thirteenth = Math.round(base / 12);
+      const thirteenth = Math.round(base / 12 / 30);
       const vacation = Math.round(base / 12);
       const vacationBonus = Math.round(vacation / 3);
       const total = base + fgts + fgtsHalf + thirteenth + vacation + vacationBonus;
