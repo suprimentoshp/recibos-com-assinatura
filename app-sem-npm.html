@@ -27,12 +27,22 @@
     .primary { background: var(--primary); color: white; }
     .primary:hover { background: var(--primary-dark); }
     .secondary { background: #e8f0f2; color: var(--primary); }
-    .shell { display: grid; grid-template-columns: 350px 1fr; min-height: 100vh; }
+    .shell { display: grid; grid-template-columns: 350px 1fr; min-height: 100vh; position: relative; }
     .shell.locked { display: none; }
     .report-mode .receipt-mode-only { display: none !important; }
     .receipt-mode .report-only { display: none !important; }
     .home-screen .work-area { display: none !important; }
     .home-screen main { align-items: center; justify-items: center; min-height: 100vh; }
+    .home-screen main::before {
+      background: url("/lumen-cafe-planalto.png") center / min(62vw, 680px) auto no-repeat;
+      content: "";
+      inset: 0;
+      opacity: .13;
+      pointer-events: none;
+      position: fixed;
+      z-index: 0;
+    }
+    .home-screen main > * { position: relative; z-index: 1; }
     .home-screen .topbar.receipt-mode-only { display: grid; justify-content: center; justify-items: center; width: 100%; }
     .home-screen .topbar.receipt-mode-only > div:first-child { justify-self: start; position: absolute; top: 28px; }
     .home-screen .topbar.receipt-mode-only .actions { justify-content: center; margin: 0 auto; }
@@ -132,6 +142,7 @@
     .report-table th:nth-child(3), .report-table td:nth-child(3) { width: 20%; }
     .report-table th:nth-child(4), .report-table td:nth-child(4) { width: 16%; }
     .report-table th:nth-child(7), .report-table td:nth-child(7) { width: 16%; }
+    .report-print-summary { display: none; }
     .modal {
       align-items: center; background: rgba(12,28,36,.72); display: none; inset: 0; justify-content: center;
       padding: 16px; position: fixed; z-index: 20;
@@ -202,6 +213,16 @@
       }
       body.print-report .report-summary {
         display: none;
+      }
+      body.print-report .report-print-summary {
+        border: 1px solid var(--line);
+        display: flex;
+        font-size: 11px;
+        font-weight: 800;
+        gap: 18px;
+        justify-content: flex-end;
+        margin: 0 0 8px;
+        padding: 6px 8px;
       }
       body.print-report .report h2 {
         font-size: 16px;
@@ -326,8 +347,8 @@
       <section id="report" class="report report-only">
         <h2>Relatórios de recibos</h2>
         <div class="report-filters">
-          <label><span>Emissão início</span><input id="reportEmissionStart" type="date"></label>
-          <label><span>Emissão fim</span><input id="reportEmissionEnd" type="date"></label>
+          <label><span>Emissão início</span><input id="reportEmissionStart" type="datetime-local"></label>
+          <label><span>Emissão fim</span><input id="reportEmissionEnd" type="datetime-local"></label>
           <label><span>Dia trabalhado início</span><input id="reportWorkStart" type="date"></label>
           <label><span>Dia trabalhado fim</span><input id="reportWorkEnd" type="date"></label>
           <label><span>Setor</span><select id="reportSector"><option value="">Todos</option></select></label>
@@ -339,6 +360,10 @@
           <div class="metric"><span>Total lançado</span><strong id="reportTotal">R$ 0,00</strong></div>
           <div class="metric"><span>Assinados</span><strong id="reportSigned">0</strong></div>
           <div class="metric"><span>Ticket médio</span><strong id="reportAverage">R$ 0,00</strong></div>
+        </div>
+        <div class="report-print-summary">
+          <span id="reportPrintCount">Recibos selecionados: 0</span>
+          <span id="reportPrintTotal">Total dos recibos selecionados: R$ 0,00</span>
         </div>
         <div class="dashboard-grid">
           <div class="chart-panel">
@@ -602,6 +627,17 @@
       return true;
     }
 
+    function inDateTimeRange(value, start, end) {
+      if (!value) return false;
+      const time = new Date(value).getTime();
+      const startTime = start ? new Date(start).getTime() : null;
+      const endTime = end ? new Date(end).getTime() : null;
+      if (Number.isNaN(time)) return false;
+      if (startTime && time < startTime) return false;
+      if (endTime && time > endTime) return false;
+      return true;
+    }
+
     function receiptHasWorkDateInRange(receipt, start, end) {
       if (!start && !end) return true;
       return datesOf(receipt).some((workDate) => inDateRange(workDate, start, end));
@@ -802,8 +838,8 @@
       const name = $("reportName").value.trim().toLowerCase();
       const contractor = $("reportContractor").value.trim().toLowerCase();
       return db.receipts.filter((r) => {
-        const issuedDate = String(r.issuedAt || r.createdAt || "").slice(0, 10);
-        const okEmission = (!emissionStart && !emissionEnd) || inDateRange(issuedDate, emissionStart, emissionEnd);
+        const issuedAt = r.issuedAt || r.createdAt || "";
+        const okEmission = (!emissionStart && !emissionEnd) || inDateTimeRange(issuedAt, emissionStart, emissionEnd);
         const okWorkDate = receiptHasWorkDateInRange(r, workStart, workEnd);
         const okSector = !sector || r.sectorName === sector;
         const okName = !name || String(r.personName || "").toLowerCase().includes(name);
@@ -839,6 +875,8 @@
       $("reportTotal").textContent = money(total);
       $("reportSigned").textContent = validRows.filter((r) => r.signature).length;
       $("reportAverage").textContent = money(validRows.length ? Math.round(total / validRows.length) : 0);
+      $("reportPrintCount").textContent = `Recibos selecionados: ${validRows.length}`;
+      $("reportPrintTotal").textContent = `Total dos recibos selecionados: ${money(total)}`;
       renderBars("chartSector", groupRows(validRows, "sectorName"), (value) => `${value}`);
       renderBars("chartContractor", groupRows(validRows, "contractorName", (r) => Number(r.amountCents || 0)), money);
       renderBars("chartPeople", groupRows(validRows, "personName", (r) => Number(r.amountCents || 0)), money);
