@@ -776,17 +776,15 @@
       const fgts = Math.round(base * 0.08);
       const fgtsHalf = Math.round(fgts * 0.5);
       const thirteenth = Math.round(base / 12 / 30);
-      const vacation = Math.round(base / 12);
+      const vacation = thirteenth;
       const vacationBonus = Math.round(vacation / 3);
-      const total = base + fgts + fgtsHalf + thirteenth + vacation + vacationBonus;
       return [
         ["VALOR DO DIA TRABALHADO", base],
         ["FGTS REFERENTE AO DIA", fgts],
         ["50% SOBRE FGTS", fgtsHalf],
         ["13º SAL. PROP. REF. AO DIA TRABALHADO", thirteenth],
         ["FÉRIAS PROPORCIONAIS", vacation],
-        ["ADICIONAL DE FÉRIAS", vacationBonus],
-        ["TOTAL", total]
+        ["ADICIONAL DE FÉRIAS", vacationBonus]
       ];
     }
 
