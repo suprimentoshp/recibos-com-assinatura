@@ -30,7 +30,9 @@
     .shell { display: grid; grid-template-columns: 350px 1fr; min-height: 100vh; position: relative; }
     .shell.locked { display: none; }
     .report-mode .receipt-mode-only { display: none !important; }
+    .bulk-mode .receipt-mode-only, .bulk-mode .report-only { display: none !important; }
     .receipt-mode .report-only { display: none !important; }
+    .receipt-mode .bulk-only, .report-mode .bulk-only { display: none !important; }
     .home-screen .work-area { display: none !important; }
     .home-screen main { align-items: center; justify-items: center; min-height: 100vh; overflow: hidden; position: relative; }
     .home-screen main::before {
@@ -128,6 +130,32 @@
     .date-group { display: grid; gap: 8px; }
     .date-row { display: grid; gap: 8px; grid-template-columns: 1.2fr 1fr 1fr auto; }
     .date-row button { min-height: 42px; padding: 0 12px; }
+    .bulk-panel {
+      background: var(--paper); border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 14px; padding: 18px;
+    }
+    .bulk-toolbar { align-items: end; display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; }
+    .bulk-table-wrap { overflow: auto; }
+    .bulk-table { border-collapse: collapse; min-width: 1260px; width: 100%; }
+    .bulk-table th, .bulk-table td { border-bottom: 1px solid var(--line); padding: 7px; text-align: left; vertical-align: top; }
+    .bulk-table th { color: var(--muted); font-size: .76rem; text-transform: uppercase; }
+    .bulk-table input, .bulk-table select, .bulk-table textarea { font-size: .88rem; min-height: 36px; padding: 6px 8px; }
+    .bulk-table textarea { min-height: 36px; }
+    .bulk-row-number { color: var(--muted); font-size: .78rem; font-weight: 800; text-align: center; width: 34px; }
+    .bulk-print-area { display: none; }
+    .bulk-print-receipt { border: 1px solid var(--ink); display: grid; gap: 5px; min-height: 88mm; padding: 5mm; page-break-inside: avoid; break-inside: avoid; }
+    .bulk-print-receipt header { align-items: start; border-bottom: 1px solid var(--ink); display: grid; grid-template-columns: 1fr auto; gap: 8px; padding-bottom: 4px; }
+    .bulk-print-receipt h2 { font-size: 16px; margin: 0; }
+    .bulk-print-receipt .total { border-radius: 0; font-size: 14px; padding: 4px 7px; }
+    .bulk-print-grid { display: grid; gap: 4px 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: 10px; }
+    .bulk-print-grid div { border-bottom: 1px solid var(--line); padding-bottom: 2px; }
+    .bulk-print-grid .full-row { grid-column: 1 / -1; }
+    .bulk-print-grid strong { display: block; font-size: 8px; text-transform: uppercase; color: var(--muted); }
+    .bulk-print-calculation { border-collapse: collapse; font-size: 8px; width: 100%; }
+    .bulk-print-calculation td { border: 1px solid var(--line); padding: 2px 4px; }
+    .bulk-print-calculation td:last-child { text-align: right; width: 28%; }
+    .bulk-print-signature { align-self: end; display: grid; gap: 3px; justify-items: center; margin-top: 5px; text-align: center; }
+    .bulk-print-line { border-top: 1px solid var(--ink); font-size: 9px; padding-top: 3px; width: 62%; }
+    .bulk-print-text { font-size: 9px; margin: 0; }
     .report {
       background: var(--paper); border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 16px; padding: 18px;
     }
@@ -178,6 +206,7 @@
       aside, main { padding: 16px; }
       .topbar, .receipt header { align-items: stretch; flex-direction: column; }
       form, .grid, .report-filters, .report-summary, .dashboard-grid { grid-template-columns: 1fr; }
+      .bulk-toolbar { grid-template-columns: 1fr; }
       .date-row { grid-template-columns: 1fr; }
       .wide { grid-column: auto; }
       .receipt { min-height: auto; padding: 24px; }
@@ -204,12 +233,30 @@
       .signature-area { margin-top: 24px; min-height: 120px; padding-top: 14px; }
       .receipt-text { font-size: 12px; }
       body.print-report aside,
+      body.print-bulk aside,
       body.print-report .topbar,
+      body.print-bulk .topbar,
       body.print-report form,
+      body.print-bulk form,
       body.print-report .actions,
+      body.print-bulk .actions,
       body.print-report .notice,
+      body.print-bulk .notice,
       body.print-report .receipt {
         display: none !important;
+      }
+      body.print-bulk .receipt,
+      body.print-bulk .report,
+      body.print-bulk .bulk-panel {
+        display: none !important;
+      }
+      body.print-bulk .bulk-print-area {
+        display: grid !important;
+        gap: 0;
+      }
+      body.print-bulk .bulk-print-receipt:nth-child(3n):not(:last-child) {
+        break-after: page;
+        page-break-after: always;
       }
       body.print-report .report {
         border: 0;
@@ -310,6 +357,7 @@
         <div class="actions">
           <button class="secondary" id="home" type="button">Home</button>
           <button class="primary" id="newReceipt" type="button">Novo</button>
+          <button class="secondary" id="bulkReceipts" type="button">Lote</button>
           <button class="secondary" id="toggleReport" type="button">Relatório</button>
           <button class="secondary" id="backup">Backup</button>
           <label class="button secondary" for="restore">Restaurar</label>
@@ -323,6 +371,15 @@
         <div class="actions">
           <button class="secondary" id="backToReceipt" type="button">Home</button>
           <button class="primary" id="printReport" type="button">Imprimir lista filtrada</button>
+        </div>
+      </div>
+
+      <div class="topbar bulk-only">
+        <div><span class="eyebrow">Emissão em lote</span><h1>Recibos em lote</h1></div>
+        <div class="actions">
+          <button class="secondary" id="backFromBulk" type="button">Home</button>
+          <button class="primary" id="savePrintBulk" type="button">Salvar e imprimir preenchidos</button>
+          <button class="secondary" id="clearBulk" type="button">Limpar lote</button>
         </div>
       </div>
 
@@ -350,6 +407,38 @@
       </div>
 
       <div class="notice receipt-mode-only work-area" id="storageNotice"></div>
+
+      <section id="bulkPanel" class="bulk-panel bulk-only">
+        <div class="bulk-toolbar">
+          <label><span>Data trabalhada padrão</span><input id="bulkDefaultDate" type="date"></label>
+          <label><span>Início padrão</span><input id="bulkDefaultStart" type="time"></label>
+          <label><span>Final padrão</span><input id="bulkDefaultEnd" type="time"></label>
+          <label><span>Valor padrão</span><input id="bulkDefaultAmount" type="number" min="0" step="0.01"></label>
+          <button class="secondary" id="applyBulkDefaults" type="button">Aplicar nas linhas vazias</button>
+        </div>
+        <div class="notice">Preencha até 40 linhas. Linhas totalmente vazias serão ignoradas; linhas começadas precisam estar completas para salvar e imprimir.</div>
+        <div class="bulk-table-wrap">
+          <table class="bulk-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nome</th>
+                <th>CPF</th>
+                <th>Data</th>
+                <th>Início</th>
+                <th>Final</th>
+                <th>Valor</th>
+                <th>Motivo do pagamento</th>
+                <th>Setor</th>
+                <th>Responsável</th>
+              </tr>
+            </thead>
+            <tbody id="bulkRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="bulkPrintArea" class="bulk-print-area"></section>
 
       <section id="report" class="report report-only">
         <h2>Relatórios de recibos</h2>
@@ -699,9 +788,14 @@
 
     function setMode(mode) {
       $("shell").classList.toggle("report-mode", mode === "report");
-      $("shell").classList.toggle("receipt-mode", mode !== "report");
+      $("shell").classList.toggle("bulk-mode", mode === "bulk");
+      $("shell").classList.toggle("receipt-mode", mode !== "report" && mode !== "bulk");
       if (mode === "report") $("shell").classList.remove("home-screen");
       if (mode === "report") renderReport();
+      if (mode === "bulk") {
+        $("shell").classList.remove("home-screen");
+        setupBulkRows();
+      }
     }
 
     function showHome() {
@@ -724,6 +818,12 @@
       selectedId = id;
       setMode("receipt");
       $("shell").classList.remove("home-screen");
+      render();
+    }
+
+    function showBulkReceipts() {
+      setMode("bulk");
+      selectedId = null;
       render();
     }
 
@@ -788,6 +888,198 @@
       resetWorkDates();
       $("sectorName").value = "";
       $("form").querySelector(".submit").textContent = "Criar recibo";
+    }
+
+    function bulkSectorOptions(value = "") {
+      return `<option value="">Selecione</option>` + db.sectors.map((sector) => (
+        `<option value="${escapeHtml(sector)}"${sector === value ? " selected" : ""}>${escapeHtml(sector)}</option>`
+      )).join("");
+    }
+
+    function bulkContractorOptions(value = "") {
+      return `<option value="">Selecione</option>` + db.contractors.map((contractor) => (
+        `<option value="${escapeHtml(contractor)}"${contractor === value ? " selected" : ""}>${escapeHtml(contractor)}</option>`
+      )).join("");
+    }
+
+    function setupBulkRows(force = false) {
+      if (!force && $("bulkRows").children.length === 40) return;
+      $("bulkRows").innerHTML = Array.from({ length: 40 }, (_, index) => `
+        <tr class="bulk-row">
+          <td class="bulk-row-number">${index + 1}</td>
+          <td><input class="bulk-name" list="people" autocomplete="off"></td>
+          <td><input class="bulk-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"></td>
+          <td><input class="bulk-date" type="date"></td>
+          <td><input class="bulk-start" type="time"></td>
+          <td><input class="bulk-end" type="time"></td>
+          <td><input class="bulk-amount" type="number" min="0" step="0.01"></td>
+          <td><textarea class="bulk-reason"></textarea></td>
+          <td><select class="bulk-sector">${bulkSectorOptions()}</select></td>
+          <td><select class="bulk-contractor">${bulkContractorOptions()}</select></td>
+        </tr>
+      `).join("");
+      $("bulkRows").querySelectorAll(".bulk-name").forEach((input) => {
+        input.oninput = () => fillBulkCpfFromHistory(input.closest("tr"));
+        input.onchange = () => fillBulkCpfFromHistory(input.closest("tr"));
+      });
+      $("bulkRows").querySelectorAll(".bulk-cpf").forEach((input) => {
+        input.oninput = (event) => event.target.value = formatCpf(event.target.value);
+      });
+      setBulkDefaultDate();
+    }
+
+    function setBulkDefaultDate() {
+      if (!$("bulkDefaultDate").value) $("bulkDefaultDate").value = new Date().toISOString().slice(0, 10);
+    }
+
+    function fillBulkCpfFromHistory(row) {
+      const name = row.querySelector(".bulk-name").value.trim().toLowerCase();
+      const cpf = cpfByPersonName().get(name);
+      if (cpf) row.querySelector(".bulk-cpf").value = cpf;
+    }
+
+    function applyBulkDefaults() {
+      const defaults = {
+        date: $("bulkDefaultDate").value,
+        startTime: $("bulkDefaultStart").value,
+        endTime: $("bulkDefaultEnd").value,
+        amount: $("bulkDefaultAmount").value
+      };
+      $("bulkRows").querySelectorAll("tr").forEach((row) => {
+        if (defaults.date && !row.querySelector(".bulk-date").value) row.querySelector(".bulk-date").value = defaults.date;
+        if (defaults.startTime && !row.querySelector(".bulk-start").value) row.querySelector(".bulk-start").value = defaults.startTime;
+        if (defaults.endTime && !row.querySelector(".bulk-end").value) row.querySelector(".bulk-end").value = defaults.endTime;
+        if (defaults.amount && !row.querySelector(".bulk-amount").value) row.querySelector(".bulk-amount").value = defaults.amount;
+      });
+    }
+
+    function clearBulkRows() {
+      if (!confirm("Limpar todos os campos do lote?")) return;
+      setupBulkRows(true);
+      $("bulkDefaultStart").value = "";
+      $("bulkDefaultEnd").value = "";
+      $("bulkDefaultAmount").value = "";
+    }
+
+    function bulkRowData(row) {
+      return {
+        personName: row.querySelector(".bulk-name").value.trim().replace(/\s+/g, " "),
+        personCpf: formatCpf(row.querySelector(".bulk-cpf").value),
+        workDate: row.querySelector(".bulk-date").value,
+        startTime: row.querySelector(".bulk-start").value,
+        endTime: row.querySelector(".bulk-end").value,
+        amount: row.querySelector(".bulk-amount").value,
+        paymentReason: row.querySelector(".bulk-reason").value.trim(),
+        sectorName: row.querySelector(".bulk-sector").value,
+        contractorName: row.querySelector(".bulk-contractor").value
+      };
+    }
+
+    function isBulkRowEmpty(data) {
+      return ![
+        data.personName,
+        data.personCpf,
+        data.paymentReason,
+        data.sectorName,
+        data.contractorName
+      ].some((value) => String(value || "").trim());
+    }
+
+    function validateBulkRow(data, index) {
+      const fields = [
+        ["Nome", data.personName],
+        ["CPF", data.personCpf],
+        ["Data", data.workDate],
+        ["Início", data.startTime],
+        ["Final", data.endTime],
+        ["Valor", data.amount],
+        ["Motivo do pagamento", data.paymentReason],
+        ["Setor", data.sectorName],
+        ["Responsável", data.contractorName]
+      ];
+      const missing = fields.find(([, value]) => String(value || "").trim() === "");
+      if (missing) return `Linha ${index + 1}: preencha ${missing[0]}.`;
+      if (data.personCpf.replace(/\D/g, "").length !== 11) return `Linha ${index + 1}: informe um CPF completo com 11 números.`;
+      if (Number(data.amount) <= 0) return `Linha ${index + 1}: informe um valor maior que zero.`;
+      return "";
+    }
+
+    function createReceiptFromBulkData(data) {
+      const issuedAt = new Date().toISOString();
+      const receipt = {
+        id: crypto.randomUUID(),
+        receiptNumber: String(db.nextNumber++).padStart(6, "0"),
+        personName: uniqAdd("people", data.personName),
+        personCpf: data.personCpf,
+        sectorName: uniqAdd("sectors", data.sectorName),
+        contractorName: uniqAdd("contractors", data.contractorName),
+        workDate: data.workDate,
+        workDates: [data.workDate],
+        workPeriods: [{ date: data.workDate, startTime: data.startTime, endTime: data.endTime }],
+        paymentReason: data.paymentReason,
+        amountCents: Math.round(Number(String(data.amount).replace(",", ".")) * 100),
+        printedAt: issuedAt,
+        issuedAt,
+        createdAt: issuedAt,
+        signature: null
+      };
+      db.receipts.unshift(receipt);
+      return receipt;
+    }
+
+    function compactCalculationRows(amountCents) {
+      return receiptCalculations(amountCents).map(([label, value]) => `
+        <tr><td>${escapeHtml(label)}</td><td>${money(value)}</td></tr>
+      `).join("");
+    }
+
+    function bulkReceiptPrintHtml(receipt) {
+      return `
+        <article class="bulk-print-receipt">
+          <header>
+            <div>
+              <span class="eyebrow">Recibo de pagamento</span>
+              <h2>Recibo Nº ${escapeHtml(receipt.receiptNumber)}</h2>
+            </div>
+            <div class="total"><span>Valor pago</span>${money(receipt.amountCents)}</div>
+          </header>
+          <div class="bulk-print-grid">
+            <div><strong>Nome</strong>${escapeHtml(receipt.personName)}</div>
+            <div><strong>CPF</strong>${escapeHtml(receipt.personCpf)}</div>
+            <div class="full-row"><strong>Data trabalhada</strong>${datesHtml(receipt)}</div>
+            <div class="full-row"><strong>Motivo do pagamento</strong>${escapeHtml(receipt.paymentReason)}</div>
+            <div><strong>Setor</strong>${escapeHtml(receipt.sectorName)}</div>
+            <div><strong>Responsável</strong>${escapeHtml(receipt.contractorName)}</div>
+            <div><strong>Emitido em</strong>${dateTime(receipt.issuedAt)}</div>
+            <div><strong>Impresso em</strong>${dateTime(receipt.printedAt)}</div>
+          </div>
+          <table class="bulk-print-calculation"><tbody>${compactCalculationRows(receipt.amountCents)}</tbody></table>
+          <div class="bulk-print-signature">
+            <div class="bulk-print-line">${escapeHtml(receipt.personName)}</div>
+            <p class="bulk-print-text">Recebi de acordo com as informações acima o valor referente a serviço prestado.</p>
+          </div>
+        </article>
+      `;
+    }
+
+    async function saveAndPrintBulkReceipts() {
+      await loadRemoteData({ preserveSelection: true });
+      const rows = [...$("bulkRows").querySelectorAll("tr")].map(bulkRowData);
+      const filledRows = rows.map((data, index) => ({ data, index })).filter(({ data }) => !isBulkRowEmpty(data));
+      if (!filledRows.length) return alert("Preencha pelo menos uma linha para salvar e imprimir.");
+      const firstError = filledRows.map(({ data, index }) => validateBulkRow(data, index)).find(Boolean);
+      if (firstError) return alert(firstError);
+      const receipts = filledRows.map(({ data }) => createReceiptFromBulkData(data));
+      selectedId = receipts[0]?.id || selectedId;
+      localStorage.setItem(KEY, JSON.stringify(db));
+      await saveRemoteData();
+      $("bulkPrintArea").innerHTML = receipts.map(bulkReceiptPrintHtml).join("");
+      render();
+      document.body.classList.add("print-bulk");
+      window.print();
+      setTimeout(() => document.body.classList.remove("print-bulk"), 500);
+      setupBulkRows(true);
+      alert(`${receipts.length} recibo(s) salvos e enviados para impressão.`);
     }
 
     function startEditReceipt(receipt) {
@@ -1170,6 +1462,11 @@
       showHome();
     };
     $("newReceipt").onclick = () => showNewReceipt();
+    $("bulkReceipts").onclick = () => showBulkReceipts();
+    $("backFromBulk").onclick = () => showHome();
+    $("applyBulkDefaults").onclick = applyBulkDefaults;
+    $("clearBulk").onclick = clearBulkRows;
+    $("savePrintBulk").onclick = saveAndPrintBulkReceipts;
     $("logout").onclick = () => {
       localStorage.removeItem(SESSION_KEY);
       currentUser = null;
