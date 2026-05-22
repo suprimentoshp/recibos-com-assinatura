@@ -34,10 +34,13 @@
     .home-screen .work-area { display: none !important; }
     .home-screen main { align-items: center; justify-items: center; min-height: 100vh; }
     .home-screen main::before {
-      background: url("/lumen-cafe-planalto.png") center / min(62vw, 680px) auto no-repeat;
+      background-image: url("/lumen-cafe-planalto.png"), url("/lumen-cafe-planalto.png");
+      background-position: 0 0, 90px 90px;
+      background-repeat: repeat;
+      background-size: 180px auto;
       content: "";
       inset: 0;
-      opacity: .13;
+      opacity: .055;
       pointer-events: none;
       position: fixed;
       z-index: 0;
