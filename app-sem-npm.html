@@ -32,7 +32,7 @@
     .report-mode .receipt-mode-only { display: none !important; }
     .receipt-mode .report-only { display: none !important; }
     .home-screen .work-area { display: none !important; }
-    .home-screen main { align-items: center; justify-items: center; min-height: 100vh; }
+    .home-screen main { align-items: center; justify-items: center; min-height: 100vh; overflow: hidden; position: relative; }
     .home-screen main::before {
       background-image: url("/lumen-cafe-planalto.png"), url("/lumen-cafe-planalto.png");
       background-position: 0 0, 90px 90px;
@@ -40,9 +40,9 @@
       background-size: 180px auto;
       content: "";
       inset: 0;
-      opacity: .055;
+      opacity: .072;
       pointer-events: none;
-      position: fixed;
+      position: absolute;
       z-index: 0;
     }
     .home-screen main > * { position: relative; z-index: 1; }
