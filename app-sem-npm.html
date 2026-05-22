@@ -441,33 +441,65 @@
       try { return JSON.parse(localStorage.getItem(KEY)) || fallback; } catch { return fallback; }
     }
 
-    async function loadRemoteData() {
-      if (!HAS_SERVER) return;
+    async function loadRemoteData(options = {}) {
+      if (!HAS_SERVER) return false;
+      const previousSelectedId = selectedId;
       try {
         const response = await fetch("/api/app-data");
-        if (!response.ok) return;
+        if (!response.ok) return false;
         const remote = await response.json();
         if (remote) {
           db = remote;
-          selectedId = db.receipts?.[0]?.id || null;
+          db.receipts = db.receipts || [];
+          if (options.preserveSelection && db.receipts.some((receipt) => receipt.id === previousSelectedId)) {
+            selectedId = previousSelectedId;
+          } else {
+            selectedId = db.receipts?.[0]?.id || null;
+          }
+          if (currentUser) {
+            currentUser = (db.users || []).find((user) => user.login === currentUser.login) || currentUser;
+          }
           localStorage.setItem(KEY, JSON.stringify(db));
+          if (options.renderAfter && currentUser) render();
         }
+        return true;
       } catch {
+        return false;
       }
     }
 
-    function saveRemoteData() {
+    async function saveRemoteData() {
+      if (!HAS_SERVER) return false;
+      try {
+        const response = await fetch("/api/app-data", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(db)
+        });
+        return response.ok;
+      } catch {
+        return false;
+      }
+    }
+
+    async function syncRemoteData() {
+      if (!HAS_SERVER || !currentUser || $("modal").classList.contains("open")) return;
+      await loadRemoteData({ preserveSelection: true, renderAfter: true });
+    }
+
+    function startRemoteSync() {
       if (!HAS_SERVER) return;
-      fetch("/api/app-data", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(db)
-      }).catch(() => {});
+      if (window.remoteSyncTimer) clearInterval(window.remoteSyncTimer);
+      window.remoteSyncTimer = setInterval(syncRemoteData, 7000);
+      if (!window.remoteSyncStarted) {
+        window.addEventListener("focus", syncRemoteData);
+        window.remoteSyncStarted = true;
+      }
     }
 
     function renderStorageNotice() {
       $("storageNotice").textContent = HAS_SERVER
-        ? "Dados salvos no servidor online. Todos que acessarem este mesmo link compartilham o mesmo histórico de recibos, desde que o serviço tenha disco persistente configurado."
+        ? "Dados salvos no servidor online. Todos que acessarem este mesmo link compartilham o mesmo histórico de recibos; a tela sincroniza automaticamente a cada poucos segundos."
         : "Você abriu o arquivo direto no navegador. Neste modo os dados ficam salvos apenas neste computador. Para todos acessarem o mesmo histórico, use o link online do Render.";
     }
 
@@ -546,6 +578,7 @@
       $("shell").classList.remove("locked");
       $("userBadge").textContent = `Usuário: ${currentUser.login}${isAdmin() ? " (admin)" : ""}`;
       render();
+      startRemoteSync();
     }
 
     function initAuth() {
@@ -984,8 +1017,9 @@
       renderReport();
     }
 
-    $("form").onsubmit = (event) => {
+    $("form").onsubmit = async (event) => {
       event.preventDefault();
+      await loadRemoteData({ preserveSelection: true });
       const workPeriods = currentWorkPeriods();
       const workDates = workPeriods.map((period) => period.date);
       const requiredFields = [
@@ -1058,6 +1092,7 @@
       if (r.canceled) return alert("Recibos cancelados não devem ser impressos.");
       r.printedAt = new Date().toISOString();
       localStorage.setItem(KEY, JSON.stringify(db));
+      saveRemoteData();
       render();
       window.print();
     };
