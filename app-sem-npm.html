@@ -111,7 +111,6 @@
     .calculation-table th { background: #f4f8fa; color: var(--muted); font-size: .78rem; text-transform: uppercase; }
     .calculation-table td:last-child,
     .calculation-table th:last-child { text-align: right; width: 28%; }
-    .calculation-table .calculation-total td { color: var(--primary); font-weight: 900; }
     .signature-area {
       align-items: center; border-top: 1px solid var(--line); display: grid; gap: 8px; justify-items: center;
       margin-top: 36px; min-height: 150px; padding-top: 18px; text-align: center;
@@ -182,7 +181,7 @@
     }
     @media print {
       @page {
-        size: A4 landscape;
+        size: A4 portrait;
         margin: 8mm;
       }
       body { background: white; }
@@ -772,14 +771,15 @@
     }
 
     function receiptCalculations(amountCents) {
-      const base = Number(amountCents || 0);
-      const fgts = Math.round(base * 0.08);
+      const totalReceipt = Number(amountCents || 0);
+      const fgts = Math.round(totalReceipt * 0.08);
       const fgtsHalf = Math.round(fgts * 0.5);
-      const thirteenth = Math.round(base / 12 / 30);
+      const thirteenth = Math.round(totalReceipt / 12 / 30);
       const vacation = thirteenth;
       const vacationBonus = Math.round(vacation / 3);
+      const workedDayValue = totalReceipt - fgts - fgtsHalf - thirteenth - vacation - vacationBonus;
       return [
-        ["VALOR DO DIA TRABALHADO", base],
+        ["VALOR DO DIA TRABALHADO", workedDayValue],
         ["FGTS REFERENTE AO DIA", fgts],
         ["50% SOBRE FGTS", fgtsHalf],
         ["13º SAL. PROP. REF. AO DIA TRABALHADO", thirteenth],
@@ -799,8 +799,8 @@
             </tr>
           </thead>
           <tbody>
-            ${rows.map(([label, value], index) => `
-              <tr class="${index === rows.length - 1 ? "calculation-total" : ""}">
+            ${rows.map(([label, value]) => `
+              <tr>
                 <td>${escapeHtml(label)}</td>
                 <td>${money(value)}</td>
               </tr>
