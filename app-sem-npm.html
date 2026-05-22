@@ -349,9 +349,7 @@
         <button class="secondary" id="copy">Copiar link de assinatura</button>
       </div>
 
-      <div class="notice receipt-mode-only work-area">
-        Esta versão não usa npm nem servidor. Os dados ficam salvos neste navegador. Para assinar no celular, abra este mesmo arquivo no celular ou use a assinatura nesta tela.
-      </div>
+      <div class="notice receipt-mode-only work-area" id="storageNotice"></div>
 
       <section id="report" class="report report-only">
         <h2>Relatórios de recibos</h2>
@@ -463,6 +461,12 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(db)
       }).catch(() => {});
+    }
+
+    function renderStorageNotice() {
+      $("storageNotice").textContent = HAS_SERVER
+        ? "Dados salvos no servidor online. Todos que acessarem este mesmo link compartilham o mesmo histórico de recibos, desde que o serviço tenha disco persistente configurado."
+        : "Você abriu o arquivo direto no navegador. Neste modo os dados ficam salvos apenas neste computador. Para todos acessarem o mesmo histórico, use o link online do Render.";
     }
 
     function migrate() {
@@ -1249,6 +1253,7 @@
     async function bootstrap() {
       await loadRemoteData();
       migrate();
+      renderStorageNotice();
       addWorkDateInput(new Date().toISOString().slice(0, 10));
       initAuth();
     }
