@@ -133,9 +133,8 @@
     .bulk-panel {
       background: var(--paper); border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 14px; padding: 18px;
     }
-    .bulk-toolbar { align-items: end; display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; }
     .bulk-table-wrap { overflow: auto; }
-    .bulk-table { border-collapse: collapse; min-width: 1260px; width: 100%; }
+    .bulk-table { border-collapse: collapse; min-width: 1060px; width: 100%; }
     .bulk-table th, .bulk-table td { border-bottom: 1px solid var(--line); padding: 7px; text-align: left; vertical-align: top; }
     .bulk-table th { color: var(--muted); font-size: .76rem; text-transform: uppercase; }
     .bulk-table input, .bulk-table select, .bulk-table textarea { font-size: .88rem; min-height: 36px; padding: 6px 8px; }
@@ -206,7 +205,6 @@
       aside, main { padding: 16px; }
       .topbar, .receipt header { align-items: stretch; flex-direction: column; }
       form, .grid, .report-filters, .report-summary, .dashboard-grid { grid-template-columns: 1fr; }
-      .bulk-toolbar { grid-template-columns: 1fr; }
       .date-row { grid-template-columns: 1fr; }
       .wide { grid-column: auto; }
       .receipt { min-height: auto; padding: 24px; }
@@ -409,13 +407,6 @@
       <div class="notice receipt-mode-only work-area" id="storageNotice"></div>
 
       <section id="bulkPanel" class="bulk-panel bulk-only">
-        <div class="bulk-toolbar">
-          <label><span>Data trabalhada padrão</span><input id="bulkDefaultDate" type="date"></label>
-          <label><span>Início padrão</span><input id="bulkDefaultStart" type="time"></label>
-          <label><span>Final padrão</span><input id="bulkDefaultEnd" type="time"></label>
-          <label><span>Valor padrão</span><input id="bulkDefaultAmount" type="number" min="0" step="0.01"></label>
-          <button class="secondary" id="applyBulkDefaults" type="button">Aplicar nas linhas vazias</button>
-        </div>
         <div class="notice">Preencha até 40 linhas. Linhas totalmente vazias serão ignoradas; linhas começadas precisam estar completas para salvar e imprimir.</div>
         <div class="bulk-table-wrap">
           <table class="bulk-table">
@@ -425,8 +416,6 @@
                 <th>Nome</th>
                 <th>CPF</th>
                 <th>Data</th>
-                <th>Início</th>
-                <th>Final</th>
                 <th>Valor</th>
                 <th>Motivo do pagamento</th>
                 <th>Setor</th>
@@ -617,9 +606,7 @@
         if (!receipt.workDates) receipt.workDates = receipt.workDate ? [receipt.workDate] : [];
         if (!receipt.workPeriods) {
           receipt.workPeriods = receipt.workDates.map((workDate) => ({
-            date: workDate,
-            startTime: "",
-            endTime: ""
+            date: workDate
           }));
         }
         if (!receipt.issuedAt) receipt.issuedAt = receipt.createdAt || new Date().toISOString();
@@ -741,20 +728,14 @@
 
     function datesText(receipt) {
       if (receipt.workPeriods && receipt.workPeriods.length) {
-        return receipt.workPeriods.map((period) => {
-          const hours = period.startTime || period.endTime ? ` (${period.startTime || "--:--"} às ${period.endTime || "--:--"})` : "";
-          return `${date(period.date)}${hours}`;
-        }).join(", ");
+        return receipt.workPeriods.map((period) => date(period.date)).join(", ");
       }
       return datesOf(receipt).map(date).join(", ");
     }
 
     function datesHtml(receipt) {
       const items = receipt.workPeriods && receipt.workPeriods.length
-        ? receipt.workPeriods.map((period) => {
-            const hours = period.startTime || period.endTime ? ` (${period.startTime || "--:--"} às ${period.endTime || "--:--"})` : "";
-            return `${date(period.date)}${hours}`;
-          })
+        ? receipt.workPeriods.map((period) => date(period.date))
         : datesOf(receipt).map(date);
       return `<span class="date-lines">${items.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</span>`;
     }
@@ -814,6 +795,15 @@
       $("receipt").innerHTML = "<p class='muted'>Preencha os campos para criar um novo recibo.</p>";
     }
 
+    function currentUserName() {
+      return currentUser?.login || "";
+    }
+
+    function setDefaultContractor() {
+      const userName = currentUserName();
+      if (userName && !$("contractorName").value) $("contractorName").value = userName;
+    }
+
     function showSelectedReceipt(id) {
       selectedId = id;
       setMode("receipt");
@@ -827,7 +817,7 @@
       render();
     }
 
-    function addWorkDateInput(value = "", startTime = "", endTime = "") {
+    function addWorkDateInput(value = "") {
       const group = $("workDates");
       const count = group.querySelectorAll("input[type='date']").length;
       if (count >= 8) return;
@@ -835,8 +825,6 @@
       row.className = "date-row";
       row.innerHTML = `
         <input type="date" value="${escapeHtml(value)}" required title="Data trabalhada">
-        <input type="time" value="${escapeHtml(startTime)}" required title="Hora de início">
-        <input type="time" value="${escapeHtml(endTime)}" required title="Hora final">
         <button class="secondary" type="button">${count === 0 ? "+" : "Remover"}</button>
       `;
       const button = row.querySelector("button");
@@ -855,11 +843,9 @@
       const seen = new Set();
       return [...$("workDates").querySelectorAll(".date-row")]
         .map((row) => {
-          const [dateInput, startInput, endInput] = row.querySelectorAll("input");
+          const [dateInput] = row.querySelectorAll("input");
           return {
-            date: dateInput.value,
-            startTime: startInput.value,
-            endTime: endInput.value
+            date: dateInput.value
           };
         })
         .filter((period) => {
@@ -877,9 +863,9 @@
 
     function loadWorkPeriods(periods) {
       $("workDates").innerHTML = "";
-      (periods && periods.length ? periods : [{ date: new Date().toISOString().slice(0, 10), startTime: "", endTime: "" }])
+      (periods && periods.length ? periods : [{ date: new Date().toISOString().slice(0, 10) }])
         .slice(0, 8)
-        .forEach((period) => addWorkDateInput(period.date, period.startTime, period.endTime));
+        .forEach((period) => addWorkDateInput(period.date));
     }
 
     function resetForm() {
@@ -887,6 +873,7 @@
       $("form").reset();
       resetWorkDates();
       $("sectorName").value = "";
+      $("contractorName").value = currentUserName();
       $("form").querySelector(".submit").textContent = "Criar recibo";
     }
 
@@ -897,8 +884,9 @@
     }
 
     function bulkContractorOptions(value = "") {
+      const selectedValue = value || currentUserName();
       return `<option value="">Selecione</option>` + db.contractors.map((contractor) => (
-        `<option value="${escapeHtml(contractor)}"${contractor === value ? " selected" : ""}>${escapeHtml(contractor)}</option>`
+        `<option value="${escapeHtml(contractor)}"${contractor === selectedValue ? " selected" : ""}>${escapeHtml(contractor)}</option>`
       )).join("");
     }
 
@@ -910,8 +898,6 @@
           <td><input class="bulk-name" list="people" autocomplete="off"></td>
           <td><input class="bulk-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"></td>
           <td><input class="bulk-date" type="date"></td>
-          <td><input class="bulk-start" type="time"></td>
-          <td><input class="bulk-end" type="time"></td>
           <td><input class="bulk-amount" type="number" min="0" step="0.01"></td>
           <td><textarea class="bulk-reason"></textarea></td>
           <td><select class="bulk-sector">${bulkSectorOptions()}</select></td>
@@ -925,11 +911,6 @@
       $("bulkRows").querySelectorAll(".bulk-cpf").forEach((input) => {
         input.oninput = (event) => event.target.value = formatCpf(event.target.value);
       });
-      setBulkDefaultDate();
-    }
-
-    function setBulkDefaultDate() {
-      if (!$("bulkDefaultDate").value) $("bulkDefaultDate").value = new Date().toISOString().slice(0, 10);
     }
 
     function fillBulkCpfFromHistory(row) {
@@ -938,27 +919,9 @@
       if (cpf) row.querySelector(".bulk-cpf").value = cpf;
     }
 
-    function applyBulkDefaults() {
-      const defaults = {
-        date: $("bulkDefaultDate").value,
-        startTime: $("bulkDefaultStart").value,
-        endTime: $("bulkDefaultEnd").value,
-        amount: $("bulkDefaultAmount").value
-      };
-      $("bulkRows").querySelectorAll("tr").forEach((row) => {
-        if (defaults.date && !row.querySelector(".bulk-date").value) row.querySelector(".bulk-date").value = defaults.date;
-        if (defaults.startTime && !row.querySelector(".bulk-start").value) row.querySelector(".bulk-start").value = defaults.startTime;
-        if (defaults.endTime && !row.querySelector(".bulk-end").value) row.querySelector(".bulk-end").value = defaults.endTime;
-        if (defaults.amount && !row.querySelector(".bulk-amount").value) row.querySelector(".bulk-amount").value = defaults.amount;
-      });
-    }
-
     function clearBulkRows() {
       if (!confirm("Limpar todos os campos do lote?")) return;
       setupBulkRows(true);
-      $("bulkDefaultStart").value = "";
-      $("bulkDefaultEnd").value = "";
-      $("bulkDefaultAmount").value = "";
     }
 
     function bulkRowData(row) {
@@ -966,8 +929,6 @@
         personName: row.querySelector(".bulk-name").value.trim().replace(/\s+/g, " "),
         personCpf: formatCpf(row.querySelector(".bulk-cpf").value),
         workDate: row.querySelector(".bulk-date").value,
-        startTime: row.querySelector(".bulk-start").value,
-        endTime: row.querySelector(".bulk-end").value,
         amount: row.querySelector(".bulk-amount").value,
         paymentReason: row.querySelector(".bulk-reason").value.trim(),
         sectorName: row.querySelector(".bulk-sector").value,
@@ -990,8 +951,6 @@
         ["Nome", data.personName],
         ["CPF", data.personCpf],
         ["Data", data.workDate],
-        ["Início", data.startTime],
-        ["Final", data.endTime],
         ["Valor", data.amount],
         ["Motivo do pagamento", data.paymentReason],
         ["Setor", data.sectorName],
@@ -1015,7 +974,7 @@
         contractorName: uniqAdd("contractors", data.contractorName),
         workDate: data.workDate,
         workDates: [data.workDate],
-        workPeriods: [{ date: data.workDate, startTime: data.startTime, endTime: data.endTime }],
+        workPeriods: [{ date: data.workDate }],
         paymentReason: data.paymentReason,
         amountCents: Math.round(Number(String(data.amount).replace(",", ".")) * 100),
         printedAt: issuedAt,
@@ -1282,6 +1241,7 @@
       renderSectorSelect("sectorName");
       renderSectorSelect("filterSector", "Todos os setores");
       renderSectorSelect("reportSector", "Todos");
+      if (!$("shell").classList.contains("home-screen")) setDefaultContractor();
       const query = $("q").value.toLowerCase();
       const dateFilter = $("filterDate").value;
       const sectorFilter = $("filterSector").value;
@@ -1326,7 +1286,6 @@
       if (missing) return alert(`Preencha o campo ${missing[0]}.`);
       if (formatCpf($("personCpf").value).replace(/\D/g, "").length !== 11) return alert("Informe um CPF completo com 11 números.");
       if (!workDates.length) return alert("Informe pelo menos uma data trabalhada.");
-      if (workPeriods.some((period) => !period.startTime || !period.endTime)) return alert("Informe hora de início e hora final em todas as datas trabalhadas.");
       const existing = editId ? db.receipts.find((item) => item.id === editId) : null;
       if (editId && !canEditReceipt(existing)) {
         alert("Este recibo não pode mais ser editado.");
@@ -1464,7 +1423,6 @@
     $("newReceipt").onclick = () => showNewReceipt();
     $("bulkReceipts").onclick = () => showBulkReceipts();
     $("backFromBulk").onclick = () => showHome();
-    $("applyBulkDefaults").onclick = applyBulkDefaults;
     $("clearBulk").onclick = clearBulkRows;
     $("savePrintBulk").onclick = saveAndPrintBulkReceipts;
     $("logout").onclick = () => {
