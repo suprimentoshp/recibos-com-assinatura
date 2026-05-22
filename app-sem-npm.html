@@ -94,9 +94,9 @@
       position: relative; overflow: hidden;
     }
     .receipt.canceled::before {
-      color: rgba(180, 35, 24, .12); content: "CANCELADO"; font-size: 6rem; font-weight: 900;
+      color: rgba(180, 35, 24, .2); content: "CANCELADO"; font-size: 6rem; font-weight: 900;
       inset: 0; letter-spacing: 0; display: grid; place-items: center; position: absolute; transform: rotate(-22deg);
-      z-index: 0;
+      pointer-events: none; z-index: 3;
     }
     .receipt > * { position: relative; z-index: 1; }
     .receipt header { border-bottom: 2px solid var(--ink); display: grid; grid-template-columns: 1fr auto; gap: 18px; padding-bottom: 18px; }
@@ -141,6 +141,9 @@
     .bulk-table textarea { min-height: 36px; }
     .bulk-row-number { color: var(--muted); font-size: .78rem; font-weight: 800; text-align: center; width: 34px; }
     .bulk-print-area { display: none; }
+    .selected-print-area { display: none; }
+    .selected-print-page { display: grid; gap: 0; page-break-after: always; break-after: page; }
+    .selected-print-page:last-child { page-break-after: auto; break-after: auto; }
     .bulk-print-receipt { border: 1px solid var(--ink); display: grid; gap: 5px; min-height: 88mm; padding: 5mm; page-break-inside: avoid; break-inside: avoid; }
     .bulk-print-receipt header { align-items: start; border-bottom: 1px solid var(--ink); display: grid; grid-template-columns: 1fr auto; gap: 8px; padding-bottom: 4px; }
     .bulk-print-receipt h2 { font-size: 16px; margin: 0; }
@@ -174,10 +177,12 @@
     .report-table th, .report-table td { border-bottom: 1px solid var(--line); padding: 10px; text-align: left; vertical-align: top; }
     .report-table th { color: var(--muted); font-size: .78rem; text-transform: uppercase; }
     .report-table tr.canceled-row td { color: #b42318; font-weight: 700; }
-    .report-table th:nth-child(1), .report-table td:nth-child(1) { width: 7%; }
-    .report-table th:nth-child(3), .report-table td:nth-child(3) { width: 20%; }
-    .report-table th:nth-child(4), .report-table td:nth-child(4) { width: 16%; }
-    .report-table th:nth-child(7), .report-table td:nth-child(7) { width: 16%; }
+    .report-table th:nth-child(1), .report-table td:nth-child(1) { width: 4%; }
+    .report-table th:nth-child(2), .report-table td:nth-child(2) { width: 7%; }
+    .report-table th:nth-child(4), .report-table td:nth-child(4) { width: 20%; }
+    .report-table th:nth-child(5), .report-table td:nth-child(5) { width: 16%; }
+    .report-table th:nth-child(8), .report-table td:nth-child(8) { width: 16%; }
+    .report-table input[type="checkbox"] { min-height: auto; width: auto; }
     .report-print-summary { display: none; }
     .modal {
       align-items: center; background: rgba(12,28,36,.72); display: none; inset: 0; justify-content: center;
@@ -232,19 +237,26 @@
       .receipt-text { font-size: 12px; }
       body.print-report aside,
       body.print-bulk aside,
+      body.print-selected aside,
       body.print-report .topbar,
       body.print-bulk .topbar,
+      body.print-selected .topbar,
       body.print-report form,
       body.print-bulk form,
+      body.print-selected form,
       body.print-report .actions,
       body.print-bulk .actions,
+      body.print-selected .actions,
       body.print-report .notice,
       body.print-bulk .notice,
+      body.print-selected .notice,
       body.print-report .receipt {
         display: none !important;
       }
       body.print-bulk .receipt,
+      body.print-selected .receipt,
       body.print-bulk .report,
+      body.print-selected .report,
       body.print-bulk .bulk-panel {
         display: none !important;
       }
@@ -255,6 +267,18 @@
       body.print-bulk .bulk-print-receipt:nth-child(3n):not(:last-child) {
         break-after: page;
         page-break-after: always;
+      }
+      body.print-selected .selected-print-area {
+        display: grid !important;
+        gap: 0;
+      }
+      body.print-selected .selected-print-page .receipt {
+        border: 0;
+        box-shadow: none;
+        display: block !important;
+        max-width: none;
+        min-height: auto;
+        padding: 12mm;
       }
       body.print-report .report {
         border: 0;
@@ -289,6 +313,10 @@
         font-size: 10px;
         table-layout: fixed;
         width: 100%;
+      }
+      body.print-report .report-table th:first-child,
+      body.print-report .report-table td:first-child {
+        display: none;
       }
       body.print-report .report-table th:nth-child(1),
       body.print-report .report-table td:nth-child(1) {
@@ -369,6 +397,7 @@
         <div class="actions">
           <button class="secondary" id="backToReceipt" type="button">Home</button>
           <button class="primary" id="printReport" type="button">Imprimir lista filtrada</button>
+          <button class="secondary" id="printSelectedReceipts" type="button">Imprimir recibos marcados</button>
         </div>
       </div>
 
@@ -428,6 +457,7 @@
       </section>
 
       <section id="bulkPrintArea" class="bulk-print-area"></section>
+      <section id="selectedPrintArea" class="selected-print-area"></section>
 
       <section id="report" class="report report-only">
         <h2>Relatórios de recibos</h2>
@@ -468,6 +498,7 @@
           <table class="report-table">
             <thead>
               <tr>
+                <th>Imp.</th>
                 <th>Nº</th>
                 <th>Emissão</th>
                 <th>Dias trabalhados</th>
@@ -513,6 +544,7 @@
     let currentUser = null;
     let editId = null;
     let drawing = false;
+    let reportSelectedReceiptIds = new Set();
 
     function load() {
       const fallback = { nextNumber: FIRST_RECEIPT_NUMBER, receipts: [], people: [], sectors: [], contractors: [] };
@@ -610,6 +642,7 @@
           }));
         }
         if (!receipt.issuedAt) receipt.issuedAt = receipt.createdAt || new Date().toISOString();
+        receipt.source = receipt.source || "single";
         receipt.canceled = Boolean(receipt.canceled);
       });
       syncPeopleFromReceipts();
@@ -978,6 +1011,7 @@
         workPeriods: [{ date: data.workDate }],
         paymentReason: data.paymentReason,
         amountCents: Math.round(Number(String(data.amount).replace(",", ".")) * 100),
+        source: "bulk",
         printedAt: issuedAt,
         issuedAt,
         createdAt: issuedAt,
@@ -1020,6 +1054,87 @@
           </div>
         </article>
       `;
+    }
+
+    function simpleReceiptPrintHtml(receipt) {
+      return `
+        <article class="receipt ${receipt.canceled ? "canceled" : ""}">
+          <header>
+            <div>
+              <span class="eyebrow">Recibo de pagamento</span>
+              <h2>Recibo Nº ${escapeHtml(receipt.receiptNumber)}</h2>
+              <div class="receipt-meta">
+                <span>Emitido em ${dateTime(receipt.issuedAt || receipt.createdAt)}</span>
+                <span>Impresso em ${receipt.printedAt ? dateTime(receipt.printedAt) : "Ainda não impresso"}</span>
+              </div>
+            </div>
+            <div class="total"><span>Valor pago</span>${money(receipt.amountCents)}</div>
+          </header>
+          <dl class="grid">
+            <div><dt>Nome</dt><dd>${escapeHtml(receipt.personName)}</dd></div>
+            <div><dt>CPF</dt><dd>${escapeHtml(receipt.personCpf || "Não informado")}</dd></div>
+            <div class="full-row"><dt>Datas trabalhadas</dt><dd>${datesHtml(receipt)}</dd></div>
+            <div class="full-row"><dt>Motivo do pagamento</dt><dd>${escapeHtml(receipt.paymentReason)}</dd></div>
+            <div><dt>Setor</dt><dd>${escapeHtml(receipt.sectorName)}</dd></div>
+            <div><dt>Responsável pela contratação</dt><dd>${escapeHtml(receipt.contractorName)}</dd></div>
+            <div><dt>Status da assinatura</dt><dd>${receipt.signature ? "Assinado eletronicamente" : "Pendente"}</dd></div>
+            <div><dt>Status do recibo</dt><dd>${receipt.canceled ? "Cancelado" : "Válido"}</dd></div>
+          </dl>
+          ${receiptCalculationTable(receipt.amountCents)}
+          <footer class="signature-area">
+            ${receipt.signature ? `
+              <img src="${receipt.signature.imageData}" alt="Assinatura eletrônica">
+              <small>${escapeHtml(receipt.signature.acceptanceText)}</small>
+              <small>Assinado em ${dateTime(receipt.signature.signedAt)}</small>
+            ` : "<span>Assinatura pendente</span>"}
+            <div class="signature-line">${escapeHtml(receipt.personName)}</div>
+            <p class="receipt-text">Recebi de acordo com as informações acima o valor referente a serviço prestado.</p>
+            ${receipt.canceled ? `<small class="danger"><strong>Motivo do cancelamento:</strong> ${escapeHtml(receipt.cancelReason || "")}</small>` : ""}
+          </footer>
+        </article>
+      `;
+    }
+
+    function isBulkReceipt(receipt) {
+      return receipt.source === "bulk";
+    }
+
+    function selectedReceiptPrintPages(receipts) {
+      const pages = [];
+      let bulkBuffer = [];
+      const flushBulk = () => {
+        while (bulkBuffer.length) {
+          pages.push(`<div class="selected-print-page">${bulkBuffer.splice(0, 3).map(bulkReceiptPrintHtml).join("")}</div>`);
+        }
+      };
+      receipts.forEach((receipt) => {
+        if (isBulkReceipt(receipt)) {
+          bulkBuffer.push(receipt);
+          if (bulkBuffer.length === 3) flushBulk();
+        } else {
+          flushBulk();
+          pages.push(`<div class="selected-print-page">${simpleReceiptPrintHtml(receipt)}</div>`);
+        }
+      });
+      flushBulk();
+      return pages.join("");
+    }
+
+    async function printSelectedReportReceipts() {
+      await loadRemoteData({ preserveSelection: true });
+      const receipts = reportRows().filter((receipt) => reportSelectedReceiptIds.has(receipt.id));
+      if (!receipts.length) return alert("Marque pelo menos um recibo no relatório para imprimir.");
+      const printedAt = new Date().toISOString();
+      receipts.forEach((receipt) => {
+        if (!receipt.canceled && !receipt.printedAt) receipt.printedAt = printedAt;
+      });
+      localStorage.setItem(KEY, JSON.stringify(db));
+      await saveRemoteData();
+      $("selectedPrintArea").innerHTML = selectedReceiptPrintPages(receipts);
+      render();
+      document.body.classList.add("print-selected");
+      window.print();
+      setTimeout(() => document.body.classList.remove("print-selected"), 500);
     }
 
     async function saveAndPrintBulkReceipts() {
@@ -1222,6 +1337,7 @@
       renderBars("chartPeople", groupRows(validRows, "personName", (r) => Number(r.amountCents || 0)), money);
       $("reportRows").innerHTML = rows.map((r) => `
         <tr class="${r.canceled ? "canceled-row" : ""}">
+          <td><input class="report-print-check" type="checkbox" data-id="${r.id}" ${reportSelectedReceiptIds.has(r.id) ? "checked" : ""} title="Marcar para imprimir"></td>
           <td>#${r.receiptNumber}</td>
           <td>${dateTime(r.issuedAt || r.createdAt)}</td>
           <td>${datesHtml(r)}</td>
@@ -1232,7 +1348,13 @@
           <td>${money(r.amountCents)}</td>
           <td>${r.canceled ? "Cancelado" : "Válido"}</td>
         </tr>
-      `).join("") || `<tr><td colspan="9">Nenhum recibo encontrado para os filtros.</td></tr>`;
+      `).join("") || `<tr><td colspan="10">Nenhum recibo encontrado para os filtros.</td></tr>`;
+      $("reportRows").querySelectorAll(".report-print-check").forEach((checkbox) => {
+        checkbox.onchange = () => {
+          if (checkbox.checked) reportSelectedReceiptIds.add(checkbox.dataset.id);
+          else reportSelectedReceiptIds.delete(checkbox.dataset.id);
+        };
+      });
     }
 
     function render() {
@@ -1305,6 +1427,7 @@
         workPeriods,
         paymentReason: $("paymentReason").value.trim(),
         amountCents: Math.round(Number($("amount").value.replace(",", ".")) * 100),
+        source: existing ? existing.source || "single" : "single",
         printedAt: "",
         issuedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -1526,6 +1649,7 @@
     $("filterSector").onchange = render;
     $("toggleReport").onclick = () => setMode("report");
     $("backToReceipt").onclick = () => showHome();
+    $("printSelectedReceipts").onclick = printSelectedReportReceipts;
     ["reportEmissionStart", "reportEmissionEnd", "reportWorkStart", "reportWorkEnd", "reportSector", "reportName", "reportContractor"].forEach((id) => {
       $(id).oninput = renderReport;
       $(id).onchange = renderReport;
