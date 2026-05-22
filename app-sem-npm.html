@@ -179,9 +179,10 @@
     .report-table tr.canceled-row td { color: #b42318; font-weight: 700; }
     .report-table th:nth-child(1), .report-table td:nth-child(1) { width: 4%; }
     .report-table th:nth-child(2), .report-table td:nth-child(2) { width: 7%; }
-    .report-table th:nth-child(4), .report-table td:nth-child(4) { width: 20%; }
-    .report-table th:nth-child(5), .report-table td:nth-child(5) { width: 16%; }
-    .report-table th:nth-child(8), .report-table td:nth-child(8) { width: 16%; }
+    .report-table th:nth-child(4), .report-table td:nth-child(4) { width: 18%; }
+    .report-table th:nth-child(5), .report-table td:nth-child(5) { width: 12%; }
+    .report-table th:nth-child(6), .report-table td:nth-child(6) { width: 22%; }
+    .report-table th:nth-child(8), .report-table td:nth-child(8) { width: 14%; }
     .report-table input[type="checkbox"] { min-height: auto; width: auto; }
     .report-print-summary { display: none; }
     .modal {
@@ -503,11 +504,10 @@
                 <th>Emissão</th>
                 <th>Dias trabalhados</th>
                 <th>Nome</th>
-                <th>CPF</th>
+                <th>Motivo do pagamento</th>
                 <th>Setor</th>
                 <th>Responsável</th>
                 <th>Valor</th>
-                <th>Status</th>
               </tr>
             </thead>
             <tbody id="reportRows"></tbody>
@@ -1342,13 +1342,12 @@
           <td>${dateTime(r.issuedAt || r.createdAt)}</td>
           <td>${datesHtml(r)}</td>
           <td>${escapeHtml(r.personName)}</td>
-          <td>${escapeHtml(r.personCpf || "")}</td>
+          <td>${escapeHtml(r.paymentReason || "")}</td>
           <td>${escapeHtml(r.sectorName)}</td>
           <td>${escapeHtml(r.contractorName)}</td>
           <td>${money(r.amountCents)}</td>
-          <td>${r.canceled ? "Cancelado" : "Válido"}</td>
         </tr>
-      `).join("") || `<tr><td colspan="10">Nenhum recibo encontrado para os filtros.</td></tr>`;
+      `).join("") || `<tr><td colspan="8">Nenhum recibo encontrado para os filtros.</td></tr>`;
       $("reportRows").querySelectorAll(".report-print-check").forEach((checkbox) => {
         checkbox.onchange = () => {
           if (checkbox.checked) reportSelectedReceiptIds.add(checkbox.dataset.id);
