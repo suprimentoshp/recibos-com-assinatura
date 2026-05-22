@@ -424,6 +424,8 @@
   <script>
     const KEY = "recibos_sem_npm_v1";
     const SESSION_KEY = "recibos_sem_npm_session_v1";
+    const RECEIPT_RESET_VERSION = "reset-100400-2026-05-22";
+    const FIRST_RECEIPT_NUMBER = 100400;
     const DEFAULT_SECTORS = ["Recepção", "Copa", "Lumen", "Governança", "Lavanderia", "Zeladoria", "Manutenção"];
     const DEFAULT_CONTRACTORS = ["Walnisa", "Fernando", "João", "Ana Paula", "Jean", "Felipe", "Marcio", "Daniel"];
     const HAS_SERVER = location.protocol !== "file:";
@@ -435,7 +437,7 @@
     let drawing = false;
 
     function load() {
-      const fallback = { nextNumber: 1, receipts: [], people: [], sectors: [], contractors: [] };
+      const fallback = { nextNumber: FIRST_RECEIPT_NUMBER, receipts: [], people: [], sectors: [], contractors: [] };
       try { return JSON.parse(localStorage.getItem(KEY)) || fallback; } catch { return fallback; }
     }
 
@@ -470,7 +472,14 @@
     }
 
     function migrate() {
-      db.nextNumber = db.nextNumber || 1;
+      if (db.receiptResetVersion !== RECEIPT_RESET_VERSION) {
+        db.receipts = [];
+        db.people = [];
+        db.nextNumber = FIRST_RECEIPT_NUMBER;
+        db.receiptResetVersion = RECEIPT_RESET_VERSION;
+        selectedId = null;
+      }
+      db.nextNumber = db.nextNumber || FIRST_RECEIPT_NUMBER;
       db.receipts = db.receipts || [];
       db.people = db.people || [];
       db.sectors = db.sectors || [];
