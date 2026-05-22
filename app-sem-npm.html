@@ -940,9 +940,10 @@
       return ![
         data.personName,
         data.personCpf,
+        data.workDate,
+        data.amount,
         data.paymentReason,
-        data.sectorName,
-        data.contractorName
+        data.sectorName
       ].some((value) => String(value || "").trim());
     }
 
