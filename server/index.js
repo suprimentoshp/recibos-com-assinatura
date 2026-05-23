@@ -24,6 +24,10 @@ const port = Number(process.env.PORT || 3333);
 
 app.use(cors());
 app.use(express.json({ limit: "8mb" }));
+app.use((_req, res, next) => {
+  res.charset = "utf-8";
+  next();
+});
 
 function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -139,6 +143,7 @@ if (fs.existsSync(distDir)) {
   });
   app.get(["/", "/app-sem-npm.html"], (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.sendFile(path.join(__dirname, "..", "app-sem-npm.html"));
   });
   app.use(express.static(distDir));

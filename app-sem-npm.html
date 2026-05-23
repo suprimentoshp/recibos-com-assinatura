@@ -627,6 +627,63 @@
         : "Você abriu o arquivo direto no navegador. Neste modo os dados ficam salvos apenas neste computador. Para todos acessarem o mesmo histórico, use o link online do Render.";
     }
 
+    function repairText(value) {
+      if (typeof value !== "string") return value;
+      const replacements = [
+        ["Recep??o", "Recepção"],
+        ["Recep��o", "Recepção"],
+        ["RecepÃ§Ã£o", "Recepção"],
+        ["Governan?a", "Governança"],
+        ["Governan�a", "Governança"],
+        ["GovernanÃ§a", "Governança"],
+        ["Manuten??o", "Manutenção"],
+        ["Manuten��o", "Manutenção"],
+        ["ManutenÃ§Ã£o", "Manutenção"],
+        ["Jo?o", "João"],
+        ["Jo�o", "João"],
+        ["JoÃ£o", "João"],
+        ["Usu?rio", "Usuário"],
+        ["Usu�rio", "Usuário"],
+        ["UsuÃ¡rio", "Usuário"],
+        ["hist?rico", "histórico"],
+        ["hist�rico", "histórico"],
+        ["histÃ³rico", "histórico"],
+        ["Respons?vel", "Responsável"],
+        ["Respons�vel", "Responsável"],
+        ["ResponsÃ¡vel", "Responsável"],
+        ["contrata??o", "contratação"],
+        ["contrata��o", "contratação"],
+        ["contrataÃ§Ã£o", "contratação"],
+        ["inv?lido", "inválido"],
+        ["inv�lido", "inválido"],
+        ["invÃ¡lido", "inválido"],
+        ["n?o", "não"],
+        ["n�o", "não"],
+        ["nÃ£o", "não"]
+      ];
+      return replacements.reduce((text, [from, to]) => text.replaceAll(from, to), value);
+    }
+
+    function repairStoredText() {
+      for (const listName of ["people", "sectors", "contractors"]) {
+        db[listName] = (db[listName] || []).map(repairText);
+      }
+      db.users = (db.users || []).map((user) => ({ ...user, login: repairText(user.login) }));
+      db.receipts = (db.receipts || []).map((receipt) => ({
+        ...receipt,
+        personName: repairText(receipt.personName),
+        personCpf: repairText(receipt.personCpf),
+        sectorName: repairText(receipt.sectorName),
+        contractorName: repairText(receipt.contractorName),
+        paymentReason: repairText(receipt.paymentReason),
+        cancelReason: repairText(receipt.cancelReason),
+        signature: receipt.signature ? {
+          ...receipt.signature,
+          acceptanceText: repairText(receipt.signature.acceptanceText)
+        } : receipt.signature
+      }));
+    }
+
     function migrate() {
       if (db.receiptResetVersion !== RECEIPT_RESET_VERSION) {
         db.receipts = [];
@@ -641,6 +698,7 @@
       db.sectors = db.sectors || [];
       db.contractors = db.contractors || [];
       db.users = db.users || [];
+      repairStoredText();
       DEFAULT_SECTORS.forEach((sector) => uniqAdd("sectors", sector));
       DEFAULT_CONTRACTORS.forEach((contractor) => uniqAdd("contractors", contractor));
       DEFAULT_CONTRACTORS.forEach((name) => {
