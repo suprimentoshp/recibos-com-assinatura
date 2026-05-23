@@ -128,7 +128,7 @@
       overflow-wrap: anywhere; padding: 10px 12px;
     }
     .date-group { display: grid; gap: 8px; }
-    .date-row { display: grid; gap: 8px; grid-template-columns: 1.2fr 1fr 1fr auto; }
+    .date-row { display: grid; gap: 8px; grid-template-columns: 1.15fr .75fr .75fr .95fr auto; }
     .date-row button { min-height: 42px; padding: 0 12px; }
     .bulk-panel {
       background: var(--paper); border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 14px; padding: 18px;
@@ -428,8 +428,8 @@
       <form id="form" class="receipt-mode-only work-area">
         <label><span>Nome</span><input id="personName" list="people" autocomplete="off" required></label>
         <label><span>CPF</span><input id="personCpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" required></label>
-        <label class="wide"><span>Datas trabalhadas, início e fim da jornada (até 8)</span><div id="workDates" class="date-group"></div></label>
-        <label><span>Valor</span><input id="amount" type="number" min="0" step="0.01" required></label>
+        <label class="wide"><span>Datas trabalhadas, início, fim e valor do dia (até 8)</span><div id="workDates" class="date-group"></div></label>
+        <label><span>Valor total</span><input id="amount" type="number" min="0" step="0.01" required readonly></label>
         <label><span>Setor</span><select id="sectorName" required></select></label>
         <label><span>Responsável</span><input id="contractorName" list="contractors" required></label>
         <label class="wide"><span>Motivo do pagamento</span><textarea id="paymentReason" required></textarea></label>
@@ -717,6 +717,14 @@
       return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
     }
 
+    function centsFromInput(value) {
+      return Math.round(Number(String(value || "0").replace(",", ".")) * 100);
+    }
+
+    function inputFromCents(cents) {
+      return (Number(cents || 0) / 100).toFixed(2);
+    }
+
     function date(value) {
       if (!value) return "";
       return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(new Date(value));
@@ -780,9 +788,20 @@
       return datesOf(receipt).map(date).join(", ");
     }
 
-    function datesHtml(receipt) {
+    function periodText(period, options = {}) {
+      const parts = [date(period.date)];
+      if (options.details && (period.startTime || period.endTime)) {
+        parts.push(`${period.startTime || "--:--"} às ${period.endTime || "--:--"}`);
+      }
+      if (options.details && period.amountCents !== undefined && period.amountCents !== null) {
+        parts.push(money(period.amountCents));
+      }
+      return parts.join(" - ");
+    }
+
+    function datesHtml(receipt, options = {}) {
       const items = receipt.workPeriods && receipt.workPeriods.length
-        ? receipt.workPeriods.map((period) => date(period.date))
+        ? receipt.workPeriods.map((period) => periodText(period, options))
         : datesOf(receipt).map(date);
       return `<span class="date-lines">${items.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</span>`;
     }
@@ -864,22 +883,40 @@
       render();
     }
 
-    function addWorkDateInput(value = "") {
+    function updateReceiptTotalFromPeriods() {
+      const totalCents = [...$("workDates").querySelectorAll(".date-amount")]
+        .reduce((sum, input) => sum + centsFromInput(input.value), 0);
+      $("amount").value = inputFromCents(totalCents);
+    }
+
+    function addWorkDateInput(period = {}) {
       const group = $("workDates");
       const count = group.querySelectorAll("input[type='date']").length;
       if (count >= 8) return;
       const row = document.createElement("div");
       row.className = "date-row";
+      const value = typeof period === "string" ? period : period.date || "";
+      const startTime = typeof period === "string" ? "" : period.startTime || "";
+      const endTime = typeof period === "string" ? "" : period.endTime || "";
+      const amount = typeof period === "string" ? "" : period.amountCents !== undefined ? inputFromCents(period.amountCents) : "";
       row.innerHTML = `
         <input type="date" value="${escapeHtml(value)}" required title="Data trabalhada">
+        <input type="time" value="${escapeHtml(startTime)}" required title="Hora de início">
+        <input type="time" value="${escapeHtml(endTime)}" required title="Hora final">
+        <input class="date-amount" type="number" min="0" step="0.01" value="${escapeHtml(amount)}" required placeholder="Valor" title="Valor do dia">
         <button class="secondary" type="button">${count === 0 ? "+" : "Remover"}</button>
       `;
       const button = row.querySelector("button");
       button.onclick = () => {
         if (button.textContent === "+") addWorkDateInput();
-        else row.remove();
+        else {
+          row.remove();
+          updateReceiptTotalFromPeriods();
+        }
       };
+      row.querySelector(".date-amount").oninput = updateReceiptTotalFromPeriods;
       group.appendChild(row);
+      updateReceiptTotalFromPeriods();
     }
 
     function currentWorkDates() {
@@ -890,9 +927,12 @@
       const seen = new Set();
       return [...$("workDates").querySelectorAll(".date-row")]
         .map((row) => {
-          const [dateInput] = row.querySelectorAll("input");
+          const [dateInput, startInput, endInput, amountInput] = row.querySelectorAll("input");
           return {
-            date: dateInput.value
+            date: dateInput.value,
+            startTime: startInput.value,
+            endTime: endInput.value,
+            amountCents: centsFromInput(amountInput.value)
           };
         })
         .filter((period) => {
@@ -905,14 +945,18 @@
 
     function resetWorkDates() {
       $("workDates").innerHTML = "";
-      addWorkDateInput(new Date().toISOString().slice(0, 10));
+      addWorkDateInput({ date: new Date().toISOString().slice(0, 10) });
     }
 
-    function loadWorkPeriods(periods) {
+    function loadWorkPeriods(periods, totalCents = 0) {
       $("workDates").innerHTML = "";
-      (periods && periods.length ? periods : [{ date: new Date().toISOString().slice(0, 10) }])
-        .slice(0, 8)
-        .forEach((period) => addWorkDateInput(period.date));
+      const visiblePeriods = (periods && periods.length ? periods : [{ date: new Date().toISOString().slice(0, 10) }]).slice(0, 8);
+      const fallbackAmount = visiblePeriods.length ? Math.round(Number(totalCents || 0) / visiblePeriods.length) : 0;
+      visiblePeriods.forEach((period) => addWorkDateInput({
+        ...period,
+        amountCents: period.amountCents ?? fallbackAmount
+      }));
+      updateReceiptTotalFromPeriods();
     }
 
     function resetForm() {
@@ -1087,7 +1131,7 @@
           <dl class="grid">
             <div><dt>Nome</dt><dd>${escapeHtml(receipt.personName)}</dd></div>
             <div><dt>CPF</dt><dd>${escapeHtml(receipt.personCpf || "Não informado")}</dd></div>
-            <div class="full-row"><dt>Datas trabalhadas</dt><dd>${datesHtml(receipt)}</dd></div>
+            <div class="full-row"><dt>Datas trabalhadas</dt><dd>${datesHtml(receipt, { details: receipt.source !== "bulk" })}</dd></div>
             <div class="full-row"><dt>Motivo do pagamento</dt><dd>${escapeHtml(receipt.paymentReason)}</dd></div>
             <div><dt>Setor</dt><dd>${escapeHtml(receipt.sectorName)}</dd></div>
             <div><dt>Responsável pela contratação</dt><dd>${escapeHtml(receipt.contractorName)}</dd></div>
@@ -1179,11 +1223,11 @@
       editId = receipt.id;
       $("personName").value = receipt.personName || "";
       $("personCpf").value = receipt.personCpf || "";
-      $("amount").value = ((receipt.amountCents || 0) / 100).toFixed(2);
+      $("amount").value = inputFromCents(receipt.amountCents || 0);
       $("sectorName").value = receipt.sectorName || "";
       $("contractorName").value = receipt.contractorName || "";
       $("paymentReason").value = receipt.paymentReason || "";
-      loadWorkPeriods(receipt.workPeriods);
+      loadWorkPeriods(receipt.workPeriods, receipt.amountCents);
       $("form").querySelector(".submit").textContent = "Salvar alterações";
       setMode("receipt");
       $("shell").classList.remove("home-screen");
@@ -1251,7 +1295,7 @@
         <dl class="grid">
           <div><dt>Nome</dt><dd>${escapeHtml(r.personName)}</dd></div>
           <div><dt>CPF</dt><dd>${escapeHtml(r.personCpf || "Não informado")}</dd></div>
-          <div class="full-row"><dt>Datas trabalhadas</dt><dd>${datesHtml(r)}</dd></div>
+          <div class="full-row"><dt>Datas trabalhadas</dt><dd>${datesHtml(r, { details: r.source !== "bulk" })}</dd></div>
           <div class="full-row"><dt>Motivo do pagamento</dt><dd>${escapeHtml(r.paymentReason)}</dd></div>
           <div><dt>Setor</dt><dd>${escapeHtml(r.sectorName)}</dd></div>
           <div><dt>Responsável pela contratação</dt><dd>${escapeHtml(r.contractorName)}</dd></div>
@@ -1410,10 +1454,11 @@
       await loadRemoteData({ preserveSelection: true });
       const workPeriods = currentWorkPeriods();
       const workDates = workPeriods.map((period) => period.date);
+      const totalAmountCents = workPeriods.reduce((sum, period) => sum + Number(period.amountCents || 0), 0);
       const requiredFields = [
         ["Nome", $("personName").value],
         ["CPF", $("personCpf").value],
-        ["Valor", $("amount").value],
+        ["Valor total", $("amount").value],
         ["Setor", $("sectorName").value],
         ["Responsável", $("contractorName").value],
         ["Motivo do pagamento", $("paymentReason").value]
@@ -1422,6 +1467,9 @@
       if (missing) return alert(`Preencha o campo ${missing[0]}.`);
       if (formatCpf($("personCpf").value).replace(/\D/g, "").length !== 11) return alert("Informe um CPF completo com 11 números.");
       if (!workDates.length) return alert("Informe pelo menos uma data trabalhada.");
+      const incompletePeriod = workPeriods.find((period) => !period.date || !period.startTime || !period.endTime || Number(period.amountCents || 0) <= 0);
+      if (incompletePeriod) return alert("Preencha data, hora início, hora fim e valor em cada dia trabalhado.");
+      if (totalAmountCents <= 0) return alert("Informe pelo menos um valor de dia trabalhado maior que zero.");
       const existing = editId ? db.receipts.find((item) => item.id === editId) : null;
       if (editId && !canEditReceipt(existing)) {
         alert("Este recibo não pode mais ser editado.");
@@ -1439,7 +1487,7 @@
         workDates,
         workPeriods,
         paymentReason: $("paymentReason").value.trim(),
-        amountCents: Math.round(Number($("amount").value.replace(",", ".")) * 100),
+        amountCents: totalAmountCents,
         source: existing ? existing.source || "single" : "single",
         printedAt: "",
         issuedAt: new Date().toISOString(),
