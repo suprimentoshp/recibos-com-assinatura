@@ -706,6 +706,9 @@
           db.users.push({ login: name, password: "123456", mustChange: true, role: name === "Felipe" ? "admin" : "user" });
         }
       });
+      db.users.forEach((user) => {
+        user.role = user.login === "Felipe" ? "admin" : "user";
+      });
       db.receipts.forEach((receipt) => {
         if (!receipt.workDates) receipt.workDates = receipt.workDate ? [receipt.workDate] : [];
         if (!receipt.workPeriods) {
@@ -729,7 +732,7 @@
     }
 
     function isAdmin() {
-      return currentUser?.role === "admin";
+      return currentUser?.login === "Felipe" && currentUser?.role === "admin";
     }
 
     function canEditReceipt(receipt) {
