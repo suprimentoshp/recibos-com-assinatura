@@ -320,41 +320,31 @@
         table-layout: fixed;
         width: 100%;
       }
-      body.print-report .report-table th:first-child,
-      body.print-report .report-table td:first-child,
-      body.print-report .report-table th:nth-child(3),
-      body.print-report .report-table td:nth-child(3),
-      body.print-report .report-table th:nth-child(8),
-      body.print-report .report-table td:nth-child(8) {
+      body.print-report .report-table .print-hidden {
         display: none;
       }
-      body.print-report .report-table th:nth-child(2), body.print-report .report-table td:nth-child(2) { width: 9%; }
-      body.print-report .report-table th:nth-child(4), body.print-report .report-table td:nth-child(4) { width: 16%; }
-      body.print-report .report-table th:nth-child(5), body.print-report .report-table td:nth-child(5) { width: 22%; }
-      body.print-report .report-table th:nth-child(6), body.print-report .report-table td:nth-child(6) { width: 32%; }
-      body.print-report .report-table th:nth-child(7), body.print-report .report-table td:nth-child(7) { width: 11%; }
-      body.print-report .report-table th:nth-child(9), body.print-report .report-table td:nth-child(9) { width: 10%; }
+      body.print-report .report-table .col-number { width: 8%; }
+      body.print-report .report-table .col-days { width: 15%; }
+      body.print-report .report-table .col-name { width: 22%; }
+      body.print-report .report-table .col-reason { width: 34%; }
+      body.print-report .report-table .col-sector { width: 11%; }
+      body.print-report .report-table .col-value { width: 10%; }
       body.print-report .report-table th,
       body.print-report .report-table td {
         border-bottom: 1px solid #d9e2e6;
-        overflow-wrap: anywhere;
-        padding: 3px 4px;
+        overflow-wrap: break-word;
+        padding: 5px 4px;
+        vertical-align: top;
       }
       body.print-report .report-table td {
-        max-height: 28px;
-        overflow: hidden;
+        overflow: visible;
       }
       body.print-report .report-table td .date-lines {
         display: block;
-        max-height: 22px;
-        overflow: hidden;
       }
-      body.print-report .report-table td:nth-child(5),
-      body.print-report .report-table td:nth-child(6),
-      body.print-report .report-table td:nth-child(8) {
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 3;
+      body.print-report .report-table .col-number,
+      body.print-report .report-table .col-value {
+        white-space: nowrap;
       }
       body.print-report .report-table tr {
         break-inside: avoid;
@@ -519,15 +509,15 @@
           <table class="report-table">
             <thead>
               <tr>
-                <th>Imp.</th>
-                <th>Nº</th>
-                <th>Emissão</th>
-                <th>Dias trabalhados</th>
-                <th>Nome</th>
-                <th>Motivo do pagamento</th>
-                <th>Setor</th>
-                <th>Responsável</th>
-                <th>Valor</th>
+                <th class="print-hidden">Imp.</th>
+                <th class="col-number">Nº</th>
+                <th class="print-hidden">Emissão</th>
+                <th class="col-days">Dias trabalhados</th>
+                <th class="col-name">Nome</th>
+                <th class="col-reason">Motivo do pagamento</th>
+                <th class="col-sector">Setor</th>
+                <th class="print-hidden">Responsável</th>
+                <th class="col-value">Valor</th>
               </tr>
             </thead>
             <tbody id="reportRows"></tbody>
@@ -1357,15 +1347,15 @@
       renderBars("chartPeople", groupRows(validRows, "personName", (r) => Number(r.amountCents || 0)), money);
       $("reportRows").innerHTML = rows.map((r) => `
         <tr class="${r.canceled ? "canceled-row" : ""}">
-          <td><input class="report-print-check" type="checkbox" data-id="${r.id}" ${reportSelectedReceiptIds.has(r.id) ? "checked" : ""} title="Marcar para imprimir"></td>
-          <td>#${r.receiptNumber}</td>
-          <td>${dateTime(r.issuedAt || r.createdAt)}</td>
-          <td>${datesHtml(r)}</td>
-          <td>${escapeHtml(r.personName)}</td>
-          <td>${escapeHtml(r.paymentReason || "")}</td>
-          <td>${escapeHtml(r.sectorName)}</td>
-          <td>${escapeHtml(r.contractorName)}</td>
-          <td>${money(r.amountCents)}</td>
+          <td class="print-hidden"><input class="report-print-check" type="checkbox" data-id="${r.id}" ${reportSelectedReceiptIds.has(r.id) ? "checked" : ""} title="Marcar para imprimir"></td>
+          <td class="col-number">#${r.receiptNumber}</td>
+          <td class="print-hidden">${dateTime(r.issuedAt || r.createdAt)}</td>
+          <td class="col-days">${datesHtml(r)}</td>
+          <td class="col-name">${escapeHtml(r.personName)}</td>
+          <td class="col-reason">${escapeHtml(r.paymentReason || "")}</td>
+          <td class="col-sector">${escapeHtml(r.sectorName)}</td>
+          <td class="print-hidden">${escapeHtml(r.contractorName)}</td>
+          <td class="col-value">${money(r.amountCents)}</td>
         </tr>
       `).join("") || `<tr><td colspan="8">Nenhum recibo encontrado para os filtros.</td></tr>`;
       $("reportRows").querySelectorAll(".report-print-check").forEach((checkbox) => {
