@@ -287,6 +287,9 @@
         gap: 8px;
         padding: 0;
       }
+      body.print-report .report-table-wrap {
+        overflow: visible !important;
+      }
       body.print-report .dashboard-grid {
         display: none;
       }
@@ -311,7 +314,9 @@
         margin: 0 0 8px;
       }
       body.print-report .report-table {
-        font-size: 10px;
+        border-collapse: collapse;
+        font-size: 8.5px;
+        line-height: 1.08;
         table-layout: fixed;
         width: 100%;
       }
@@ -319,26 +324,39 @@
       body.print-report .report-table td:first-child {
         display: none;
       }
-      body.print-report .report-table th:nth-child(1),
-      body.print-report .report-table td:nth-child(1) {
-        width: 6%;
-      }
-      body.print-report .report-table th:nth-child(3),
-      body.print-report .report-table td:nth-child(3) {
-        width: 22%;
-      }
-      body.print-report .report-table th:nth-child(4),
-      body.print-report .report-table td:nth-child(4) {
-        width: 17%;
-      }
-      body.print-report .report-table th:nth-child(7),
-      body.print-report .report-table td:nth-child(7) {
-        width: 17%;
-      }
+      body.print-report .report-table th:nth-child(2), body.print-report .report-table td:nth-child(2) { width: 7%; }
+      body.print-report .report-table th:nth-child(3), body.print-report .report-table td:nth-child(3) { width: 13%; }
+      body.print-report .report-table th:nth-child(4), body.print-report .report-table td:nth-child(4) { width: 11%; }
+      body.print-report .report-table th:nth-child(5), body.print-report .report-table td:nth-child(5) { width: 17%; }
+      body.print-report .report-table th:nth-child(6), body.print-report .report-table td:nth-child(6) { width: 28%; }
+      body.print-report .report-table th:nth-child(7), body.print-report .report-table td:nth-child(7) { width: 10%; }
+      body.print-report .report-table th:nth-child(8), body.print-report .report-table td:nth-child(8) { width: 10%; }
+      body.print-report .report-table th:nth-child(9), body.print-report .report-table td:nth-child(9) { width: 8%; }
       body.print-report .report-table th,
       body.print-report .report-table td {
+        border-bottom: 1px solid #d9e2e6;
         overflow-wrap: anywhere;
-        padding: 4px 5px;
+        padding: 3px 4px;
+      }
+      body.print-report .report-table td {
+        max-height: 28px;
+        overflow: hidden;
+      }
+      body.print-report .report-table td .date-lines {
+        display: block;
+        max-height: 22px;
+        overflow: hidden;
+      }
+      body.print-report .report-table td:nth-child(5),
+      body.print-report .report-table td:nth-child(6),
+      body.print-report .report-table td:nth-child(8) {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+      }
+      body.print-report .report-table tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
     }
   </style>
@@ -495,7 +513,7 @@
             <div id="chartPeople"></div>
           </div>
         </div>
-        <div style="overflow:auto">
+        <div class="report-table-wrap" style="overflow:auto">
           <table class="report-table">
             <thead>
               <tr>
