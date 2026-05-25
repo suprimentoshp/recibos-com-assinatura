@@ -800,7 +800,7 @@
     }
 
     function canEditReceipt(receipt) {
-      return Boolean(isAdmin() && receipt && !receipt.printedAt && !receipt.signature && !receipt.canceled);
+      return Boolean(isAdmin() && receipt);
     }
 
     function renderLoginOptions() {
@@ -1360,7 +1360,7 @@
 
     function startEditReceipt(receipt) {
       if (!canEditReceipt(receipt)) {
-        alert("Somente o admin pode editar recibos que ainda não foram impressos, assinados ou cancelados.");
+        alert("Somente o usuário Felipe pode editar recibos.");
         return;
       }
       editId = receipt.id;
