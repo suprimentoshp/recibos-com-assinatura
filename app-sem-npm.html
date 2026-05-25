@@ -613,7 +613,7 @@
     const SESSION_KEY = "recibos_sem_npm_session_v1";
     const RECEIPT_RESET_VERSION = "reset-100400-2026-05-22";
     const FIRST_RECEIPT_NUMBER = 100400;
-    const DEFAULT_SECTORS = ["Recepção", "Copa", "Lumen", "Governança", "Lavanderia", "Zeladoria", "Manutenção"];
+    const DEFAULT_SECTORS = ["Recepção", "Copa", "Lumen", "Governança", "Manutenção"];
     const DEFAULT_CONTRACTORS = ["Walnisa", "Fernando", "João", "Ana Paula", "Jean", "Felipe", "Marcio", "Daniel"];
     const HAS_SERVER = location.protocol !== "file:";
     const $ = (id) => document.getElementById(id);
@@ -763,7 +763,7 @@
       db.contractors = db.contractors || [];
       db.users = db.users || [];
       repairStoredText();
-      DEFAULT_SECTORS.forEach((sector) => uniqAdd("sectors", sector));
+      db.sectors = [...DEFAULT_SECTORS];
       DEFAULT_CONTRACTORS.forEach((contractor) => uniqAdd("contractors", contractor));
       DEFAULT_CONTRACTORS.forEach((name) => {
         if (!db.users.some((user) => user.login.toLowerCase() === name.toLowerCase())) {
