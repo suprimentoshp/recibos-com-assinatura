@@ -143,21 +143,23 @@
     .bulk-print-area { display: none; }
     .selected-print-area { display: none; }
     .selected-print-page { display: grid; gap: 0; page-break-after: always; break-after: page; }
+    .simple-print-page { gap: 6mm; grid-template-rows: repeat(2, minmax(0, 1fr)); min-height: 281mm; }
+    .bulk-print-page { gap: 0; grid-template-rows: repeat(3, minmax(0, 1fr)); min-height: 281mm; }
     .selected-print-page:last-child { page-break-after: auto; break-after: auto; }
-    .bulk-print-receipt { border: 1px solid var(--ink); display: grid; gap: 5px; min-height: 88mm; padding: 5mm; page-break-inside: avoid; break-inside: avoid; }
-    .bulk-print-receipt header { align-items: start; border-bottom: 1px solid var(--ink); display: grid; grid-template-columns: 1fr auto; gap: 8px; padding-bottom: 4px; }
-    .bulk-print-receipt h2 { font-size: 16px; margin: 0; }
-    .bulk-print-receipt .total { border-radius: 0; font-size: 14px; padding: 4px 7px; }
-    .bulk-print-grid { display: grid; gap: 4px 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: 10px; }
+    .bulk-print-receipt { border: 1px solid var(--ink); display: grid; gap: 4px; min-height: 0; padding: 3.5mm 4mm; page-break-inside: avoid; break-inside: avoid; }
+    .bulk-print-receipt header { align-items: start; border-bottom: 1px solid var(--ink); display: grid; grid-template-columns: 1fr auto; gap: 8px; padding-bottom: 3px; }
+    .bulk-print-receipt h2 { font-size: 14px; margin: 0; }
+    .bulk-print-receipt .total { border-radius: 0; font-size: 14px; padding: 3px 6px; }
+    .bulk-print-grid { display: grid; gap: 3px 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: 9px; }
     .bulk-print-grid div { border-bottom: 1px solid var(--line); padding-bottom: 2px; }
     .bulk-print-grid .full-row { grid-column: 1 / -1; }
-    .bulk-print-grid strong { display: block; font-size: 8px; text-transform: uppercase; color: var(--muted); }
-    .bulk-print-calculation { border-collapse: collapse; font-size: 8px; width: 100%; }
-    .bulk-print-calculation td { border: 1px solid var(--line); padding: 2px 4px; }
+    .bulk-print-grid strong { display: block; font-size: 7.6px; text-transform: uppercase; color: var(--muted); }
+    .bulk-print-calculation { border-collapse: collapse; font-size: 7.7px; width: 100%; }
+    .bulk-print-calculation td { border: 1px solid var(--line); padding: 1.5px 3px; }
     .bulk-print-calculation td:last-child { text-align: right; width: 28%; }
-    .bulk-print-signature { align-self: end; display: grid; gap: 3px; justify-items: center; margin-top: 5px; text-align: center; }
-    .bulk-print-line { border-top: 1px solid var(--ink); font-size: 9px; padding-top: 3px; width: 62%; }
-    .bulk-print-text { font-size: 9px; margin: 0; }
+    .bulk-print-signature { align-self: end; display: grid; gap: 2px; justify-items: center; margin-top: 3px; text-align: center; }
+    .bulk-print-line { border-top: 1px solid var(--ink); font-size: 8px; padding-top: 2px; width: 56%; }
+    .bulk-print-text { font-size: 7.8px; margin: 0; }
     .report {
       background: var(--paper); border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 16px; padding: 18px;
     }
@@ -265,21 +267,83 @@
         display: grid !important;
         gap: 0;
       }
-      body.print-bulk .bulk-print-receipt:nth-child(3n):not(:last-child) {
-        break-after: page;
-        page-break-after: always;
-      }
       body.print-selected .selected-print-area {
         display: grid !important;
         gap: 0;
       }
       body.print-selected .selected-print-page .receipt {
-        border: 0;
+        border: 1px solid var(--line);
         box-shadow: none;
-        display: block !important;
+        display: grid !important;
         max-width: none;
+        min-height: 0;
+        overflow: hidden;
+      }
+      body.print-selected .simple-print-page .receipt {
+        border-radius: 0;
+        gap: 5px;
+        padding: 5mm;
+      }
+      body.print-selected .simple-print-page .receipt header {
+        padding-bottom: 6px;
+      }
+      body.print-selected .simple-print-page .receipt h2 {
+        font-size: 18px;
+      }
+      body.print-selected .simple-print-page .receipt-meta {
+        font-size: 9px;
+        gap: 2px;
+        margin-top: 3px;
+      }
+      body.print-selected .simple-print-page .total {
+        border-radius: 0;
+        font-size: 16px;
+        padding: 5px 8px;
+      }
+      body.print-selected .simple-print-page .grid {
+        gap: 5px 8px;
+        margin-top: 5px;
+      }
+      body.print-selected .simple-print-page .grid div {
+        border-radius: 0;
+        padding: 4px 6px;
+      }
+      body.print-selected .simple-print-page .grid dt {
+        font-size: 8px;
+      }
+      body.print-selected .simple-print-page .grid dd {
+        font-size: 10px;
+        margin-top: 2px;
+      }
+      body.print-selected .simple-print-page .calculation-table {
+        font-size: 8px;
+        margin-top: 4px;
+      }
+      body.print-selected .simple-print-page .calculation-table th,
+      body.print-selected .simple-print-page .calculation-table td {
+        padding: 2px 4px;
+      }
+      body.print-selected .simple-print-page .signature-area {
+        align-self: end;
+        gap: 3px;
+        margin-top: 5px;
         min-height: auto;
-        padding: 12mm;
+        padding-top: 6px;
+      }
+      body.print-selected .simple-print-page .signature-area img {
+        max-height: 42px;
+      }
+      body.print-selected .simple-print-page .signature-line {
+        font-size: 9px;
+        margin-top: 3px;
+        padding-top: 3px;
+        width: 62%;
+      }
+      body.print-selected .simple-print-page .receipt-text {
+        font-size: 9px;
+        line-height: 1.25;
+        margin: 0;
+        text-align: center;
       }
       body.print-report .report {
         border: 0;
@@ -1221,21 +1285,39 @@
     function selectedReceiptPrintPages(receipts) {
       const pages = [];
       let bulkBuffer = [];
+      let simpleBuffer = [];
       const flushBulk = () => {
         while (bulkBuffer.length) {
-          pages.push(`<div class="selected-print-page">${bulkBuffer.splice(0, 3).map(bulkReceiptPrintHtml).join("")}</div>`);
+          pages.push(`<div class="selected-print-page bulk-print-page">${bulkBuffer.splice(0, 3).map(bulkReceiptPrintHtml).join("")}</div>`);
+        }
+      };
+      const flushSimple = () => {
+        while (simpleBuffer.length) {
+          pages.push(`<div class="selected-print-page simple-print-page">${simpleBuffer.splice(0, 2).map(simpleReceiptPrintHtml).join("")}</div>`);
         }
       };
       receipts.forEach((receipt) => {
         if (isBulkReceipt(receipt)) {
+          flushSimple();
           bulkBuffer.push(receipt);
           if (bulkBuffer.length === 3) flushBulk();
         } else {
           flushBulk();
-          pages.push(`<div class="selected-print-page">${simpleReceiptPrintHtml(receipt)}</div>`);
+          simpleBuffer.push(receipt);
+          if (simpleBuffer.length === 2) flushSimple();
         }
       });
       flushBulk();
+      flushSimple();
+      return pages.join("");
+    }
+
+    function bulkReceiptPrintPages(receipts) {
+      const pages = [];
+      const buffer = [...receipts];
+      while (buffer.length) {
+        pages.push(`<div class="selected-print-page bulk-print-page">${buffer.splice(0, 3).map(bulkReceiptPrintHtml).join("")}</div>`);
+      }
       return pages.join("");
     }
 
@@ -1267,7 +1349,7 @@
       selectedId = receipts[0]?.id || selectedId;
       localStorage.setItem(KEY, JSON.stringify(db));
       await saveRemoteData();
-      $("bulkPrintArea").innerHTML = receipts.map(bulkReceiptPrintHtml).join("");
+      $("bulkPrintArea").innerHTML = bulkReceiptPrintPages(receipts);
       render();
       document.body.classList.add("print-bulk");
       window.print();
@@ -1590,8 +1672,11 @@
       r.printedAt = new Date().toISOString();
       localStorage.setItem(KEY, JSON.stringify(db));
       saveRemoteData();
+      $("selectedPrintArea").innerHTML = selectedReceiptPrintPages([r]);
       render();
+      document.body.classList.add("print-selected");
       window.print();
+      setTimeout(() => document.body.classList.remove("print-selected"), 500);
     };
 
     function backupData() {
