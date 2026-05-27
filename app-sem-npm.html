@@ -906,6 +906,10 @@
       return (receipt.workDates && receipt.workDates.length ? receipt.workDates : [receipt.workDate]).filter(Boolean);
     }
 
+    function workDateCount(receipt) {
+      return datesOf(receipt).length;
+    }
+
     function datesText(receipt) {
       if (receipt.workPeriods && receipt.workPeriods.length) {
         return receipt.workPeriods.map((period) => date(period.date)).join(", ");
@@ -1260,7 +1264,7 @@
             <div class="full-row"><dt>Motivo do pagamento</dt><dd>${escapeHtml(receipt.paymentReason)}</dd></div>
             <div><dt>Setor</dt><dd>${escapeHtml(receipt.sectorName)}</dd></div>
             <div><dt>Responsável pela contratação</dt><dd>${escapeHtml(receipt.contractorName)}</dd></div>
-            <div><dt>Status da assinatura</dt><dd>${receipt.signature ? "Assinado eletronicamente" : "Pendente"}</dd></div>
+            <div><dt>Qtd. datas trabalhadas</dt><dd>${workDateCount(receipt)}</dd></div>
             <div><dt>Status do recibo</dt><dd>${receipt.canceled ? "Cancelado" : "Válido"}</dd></div>
           </dl>
           ${receiptCalculationTable(receipt.amountCents)}
@@ -1269,7 +1273,7 @@
               <img src="${receipt.signature.imageData}" alt="Assinatura eletrônica">
               <small>${escapeHtml(receipt.signature.acceptanceText)}</small>
               <small>Assinado em ${dateTime(receipt.signature.signedAt)}</small>
-            ` : "<span>Assinatura pendente</span>"}
+            ` : ""}
             <div class="signature-line">${escapeHtml(receipt.personName)}</div>
             <p class="receipt-text">Recebi de acordo com as informações acima o valor referente a serviço prestado.</p>
             ${receipt.canceled ? `<small class="danger"><strong>Motivo do cancelamento:</strong> ${escapeHtml(receipt.cancelReason || "")}</small>` : ""}
@@ -1442,7 +1446,7 @@
           <div class="full-row"><dt>Motivo do pagamento</dt><dd>${escapeHtml(r.paymentReason)}</dd></div>
           <div><dt>Setor</dt><dd>${escapeHtml(r.sectorName)}</dd></div>
           <div><dt>Responsável pela contratação</dt><dd>${escapeHtml(r.contractorName)}</dd></div>
-          <div><dt>Status da assinatura</dt><dd>${r.signature ? "Assinado eletronicamente" : "Pendente"}</dd></div>
+          <div><dt>Qtd. datas trabalhadas</dt><dd>${workDateCount(r)}</dd></div>
           <div><dt>Status do recibo</dt><dd>${r.canceled ? "Cancelado" : "Válido"}</dd></div>
         </dl>
         ${receiptCalculationTable(r.amountCents)}
@@ -1451,7 +1455,7 @@
             <img src="${r.signature.imageData}" alt="Assinatura eletrônica">
             <small>${escapeHtml(r.signature.acceptanceText)}</small>
             <small>Assinado em ${dateTime(r.signature.signedAt)}</small>
-          ` : "<span>Assinatura pendente</span>"}
+          ` : ""}
           <div class="signature-line">${escapeHtml(r.personName)}</div>
           <p class="receipt-text">Recebi de acordo com as informações acima o valor referente a serviço prestado.</p>
           ${r.canceled ? `<small class="danger"><strong>Motivo do cancelamento:</strong> ${escapeHtml(r.cancelReason || "")}</small>` : ""}

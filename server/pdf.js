@@ -14,6 +14,12 @@ function dateTime(value) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
+function workDateCount(receipt) {
+  if (receipt.workPeriods && receipt.workPeriods.length) return receipt.workPeriods.map((period) => period.date).filter(Boolean).length;
+  if (receipt.workDates && receipt.workDates.length) return receipt.workDates.filter(Boolean).length;
+  return receipt.workDate ? 1 : 0;
+}
+
 function addRow(doc, label, value, x, y, width) {
   doc.fontSize(8).fillColor("#66737c").text(label.toUpperCase(), x, y, { width });
   doc.fontSize(11).fillColor("#17232b").text(String(value || ""), x, y + 14, { width });
@@ -49,7 +55,7 @@ export function renderReceiptPdf(receipt, stream) {
   addRow(doc, "Períodos trabalhados", `${receipt.morningDays} manhã(s) e ${receipt.afternoonDays} tarde(s)`, right, y, width);
   y += 58;
   addRow(doc, "Data de impressão", receipt.printedAt ? dateTime(receipt.printedAt) : "Ainda não impresso", left, y, width);
-  addRow(doc, "Status da assinatura", receipt.signature ? "Assinado eletronicamente" : "Pendente", right, y, width);
+  addRow(doc, "Qtd. datas trabalhadas", workDateCount(receipt), right, y, width);
 
   doc.moveTo(150, 610).lineTo(445, 610).strokeColor("#d9e1e5").lineWidth(1).stroke();
   if (receipt.signature) {
@@ -57,8 +63,6 @@ export function renderReceiptPdf(receipt, stream) {
     doc.image(Buffer.from(base64, "base64"), 178, 520, { fit: [240, 80] });
     doc.fontSize(8).fillColor("#66737c").text(receipt.signature.acceptanceText, 104, 624, { width: 386, align: "center" });
     doc.text(`Assinado em ${dateTime(receipt.signature.signedAt)}`, 104, 650, { width: 386, align: "center" });
-  } else {
-    doc.fontSize(10).fillColor("#66737c").text("Assinatura pendente", 104, 624, { width: 386, align: "center" });
   }
 
   doc.fontSize(8).fillColor("#66737c").text(
