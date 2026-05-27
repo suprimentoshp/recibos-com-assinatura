@@ -205,12 +205,14 @@
     .danger { color: #b42318; }
     @media (max-width: 980px) {
       .shell { grid-template-columns: 1fr; }
+      aside { max-height: 42vh; position: relative; top: auto; }
       form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .wide { grid-column: span 2; }
       .report-filters, .report-summary, .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 640px) {
       aside, main { padding: 16px; }
+      aside { max-height: 38vh; }
       .topbar, .receipt header { align-items: stretch; flex-direction: column; }
       form, .grid, .report-filters, .report-summary, .dashboard-grid { grid-template-columns: 1fr; }
       .date-row { grid-template-columns: 1fr; }
