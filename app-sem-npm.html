@@ -670,6 +670,19 @@
       }
     }
 
+    async function remoteHasReceipts(ids) {
+      if (!HAS_SERVER) return true;
+      try {
+        const response = await fetch("/api/app-data");
+        if (!response.ok) return false;
+        const remote = await response.json();
+        const remoteIds = new Set((remote?.receipts || []).map((receipt) => receipt.id));
+        return ids.every((id) => remoteIds.has(id));
+      } catch {
+        return false;
+      }
+    }
+
     async function syncRemoteData() {
       if (!HAS_SERVER || !currentUser || $("modal").classList.contains("open")) return;
       await loadRemoteData({ preserveSelection: true, renderAfter: true });
@@ -1352,7 +1365,17 @@
       const receipts = filledRows.map(({ data }) => createReceiptFromBulkData(data));
       selectedId = receipts[0]?.id || selectedId;
       localStorage.setItem(KEY, JSON.stringify(db));
-      await saveRemoteData();
+      const saved = await saveRemoteData();
+      const confirmed = saved && await remoteHasReceipts(receipts.map((receipt) => receipt.id));
+      if (!confirmed) {
+        db.receipts = db.receipts.filter((receipt) => !receipts.some((created) => created.id === receipt.id));
+        db.nextNumber = Math.min(...receipts.map((receipt) => Number(receipt.receiptNumber)), db.nextNumber);
+        selectedId = db.receipts[0]?.id || null;
+        localStorage.setItem(KEY, JSON.stringify(db));
+        render();
+        alert("Não foi possível confirmar o salvamento no servidor. A impressão foi cancelada para evitar recibos fora do histórico. Tente novamente.");
+        return;
+      }
       $("bulkPrintArea").innerHTML = bulkReceiptPrintPages(receipts);
       render();
       document.body.classList.add("print-bulk");
