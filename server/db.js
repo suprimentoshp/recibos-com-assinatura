@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const localDataDir = path.join(__dirname, "..", "data");
-export const dataDir = process.env.DATA_DIR || (process.env.RENDER ? "/opt/render/project/src/data" : localDataDir);
+export const dataDir = process.env.DATA_DIR || localDataDir;
 export const dbPath = path.join(dataDir, "recibos.json");
 
 fs.mkdirSync(dataDir, { recursive: true });

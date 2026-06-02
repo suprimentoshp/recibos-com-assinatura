@@ -11,8 +11,8 @@ services:
       - key: PORT
         value: 3333
       - key: DATA_DIR
-        value: /opt/render/project/src/data
+        value: /app/data
     disk:
       name: recibos-data
-      mountPath: /opt/render/project/src/data
+      mountPath: /app/data
       sizeGB: 1

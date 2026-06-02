@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 import {
   createReceipt,
   dataDir,
-  db,
   dbPath,
   findOrCreate,
   getReceipt,
@@ -34,13 +33,32 @@ function asyncRoute(handler) {
 }
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, dataDir, databaseExists: fs.existsSync(dbPath) });
 });
 
 app.get("/api/app-data", (_req, res) => {
   if (!fs.existsSync(dbPath)) return res.json(null);
   res.json(JSON.parse(fs.readFileSync(dbPath, "utf8")));
 });
+
+const backupsDir = path.join(dataDir, "backups");
+
+function persistAppData(data) {
+  fs.mkdirSync(dataDir, { recursive: true });
+  const nextContent = JSON.stringify(data, null, 2);
+  const currentContent = fs.existsSync(dbPath) ? fs.readFileSync(dbPath, "utf8") : "";
+  if (currentContent === nextContent) return;
+  if (currentContent) {
+    fs.mkdirSync(backupsDir, { recursive: true });
+    const stamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
+    fs.writeFileSync(path.join(backupsDir, `recibos-${stamp}.json`), currentContent);
+    const backups = fs.readdirSync(backupsDir).sort().reverse();
+    backups.slice(50).forEach((fileName) => fs.unlinkSync(path.join(backupsDir, fileName)));
+  }
+  const temporaryPath = `${dbPath}.tmp`;
+  fs.writeFileSync(temporaryPath, nextContent);
+  fs.renameSync(temporaryPath, dbPath);
+}
 
 function mergeBy(items, incomingItems, key) {
   const merged = new Map((items || []).map((item) => [item[key], item]));
@@ -66,10 +84,9 @@ function mergeAppData(current, incoming) {
 }
 
 app.put("/api/app-data", (req, res) => {
-  fs.mkdirSync(dataDir, { recursive: true });
   const current = fs.existsSync(dbPath) ? JSON.parse(fs.readFileSync(dbPath, "utf8")) : {};
   const merged = mergeAppData(current, req.body || {});
-  fs.writeFileSync(dbPath, JSON.stringify(merged, null, 2));
+  persistAppData(merged);
   res.json({ ok: true, nextNumber: merged.nextNumber });
 });
 
@@ -148,9 +165,8 @@ app.get("/api/backup", (_req, res) => {
   if (!fs.existsSync(dbPath)) return res.status(404).json({ error: "Banco ainda não criado" });
   const fileName = `backup-recibos-${new Date().toISOString().slice(0, 10)}.json`;
   const backupPath = path.join(dataDir, fileName);
-  db.backup(backupPath)
-    .then(() => res.download(backupPath, fileName))
-    .catch((err) => res.status(500).json({ error: err.message || "Erro ao gerar backup" }));
+  fs.copyFileSync(dbPath, backupPath);
+  res.download(backupPath, fileName);
 });
 
 const distDir = path.join(__dirname, "..", "dist");
