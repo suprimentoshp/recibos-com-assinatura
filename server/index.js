@@ -20,6 +20,8 @@ import { renderReceiptPdf } from "./pdf.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const port = Number(process.env.PORT || 3333);
+const allowedSectors = ["Recepção", "Copa", "Lumen", "Governança", "Manutenção"];
+const allowedContractors = ["Walnisa", "Fernando", "João", "Ana Paula", "Jean", "Felipe", "Marcio", "Daniel"];
 
 app.use(cors());
 app.use(express.json({ limit: "8mb" }));
@@ -97,15 +99,15 @@ function sanitizeAppData(data) {
   return {
     ...data,
     people: mergeTextLists(data.people),
-    sectors: mergeTextLists(data.sectors),
-    contractors: mergeTextLists(data.contractors)
+    sectors: [...allowedSectors],
+    contractors: [...allowedContractors]
   };
 }
 
 function mergeAppData(current, incoming) {
   current = current && typeof current === "object" ? current : {};
   incoming = incoming && typeof incoming === "object" ? incoming : {};
-  return {
+  return sanitizeAppData({
     ...current,
     ...incoming,
     nextNumber: Math.max(Number(current.nextNumber || 0), Number(incoming.nextNumber || 0)),
@@ -114,7 +116,7 @@ function mergeAppData(current, incoming) {
     sectors: mergeTextLists(current.sectors, incoming.sectors),
     contractors: mergeTextLists(current.contractors, incoming.contractors),
     users: mergeBy(current.users, incoming.users, "login")
-  };
+  });
 }
 
 app.put("/api/app-data", (req, res) => {
