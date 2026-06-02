@@ -3,7 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const dataDir = path.join(__dirname, "..", "data");
+const localDataDir = path.join(__dirname, "..", "data");
+export const dataDir = process.env.DATA_DIR || (process.env.RENDER ? "/opt/render/project/src/data" : localDataDir);
 export const dbPath = path.join(dataDir, "recibos.json");
 
 fs.mkdirSync(dataDir, { recursive: true });

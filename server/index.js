@@ -51,6 +51,8 @@ function mergeBy(items, incomingItems, key) {
 }
 
 function mergeAppData(current, incoming) {
+  current = current && typeof current === "object" ? current : {};
+  incoming = incoming && typeof incoming === "object" ? incoming : {};
   return {
     ...current,
     ...incoming,
