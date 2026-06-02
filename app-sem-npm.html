@@ -744,8 +744,18 @@
     }
 
     function repairStoredText() {
+      const storedText = (item) => {
+        if (typeof item === "string") return item;
+        if (!item || typeof item !== "object") return "";
+        if (typeof item.name === "string") return item.name;
+        return Object.keys(item)
+          .filter((key) => /^\d+$/.test(key))
+          .sort((a, b) => Number(a) - Number(b))
+          .map((key) => item[key])
+          .join("");
+      };
       for (const listName of ["people", "sectors", "contractors"]) {
-        db[listName] = (db[listName] || []).map(repairText);
+        db[listName] = (db[listName] || []).map(storedText).map(repairText).filter(Boolean);
       }
       db.users = (db.users || []).map((user) => ({ ...user, login: repairText(user.login) }));
       db.receipts = (db.receipts || []).map((receipt) => ({

@@ -38,7 +38,10 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/app-data", (_req, res) => {
   if (!fs.existsSync(dbPath)) return res.json(null);
-  res.json(JSON.parse(fs.readFileSync(dbPath, "utf8")));
+  const stored = JSON.parse(fs.readFileSync(dbPath, "utf8"));
+  const repaired = sanitizeAppData(stored);
+  persistAppData(repaired);
+  res.json(repaired);
 });
 
 const backupsDir = path.join(dataDir, "backups");
@@ -68,6 +71,37 @@ function mergeBy(items, incomingItems, key) {
   return [...merged.values()];
 }
 
+function legacyText(item) {
+  if (typeof item === "string") return item.trim();
+  if (!item || typeof item !== "object") return "";
+  if (typeof item.name === "string") return item.name.trim();
+  return Object.keys(item)
+    .filter((key) => /^\d+$/.test(key))
+    .sort((a, b) => Number(a) - Number(b))
+    .map((key) => item[key])
+    .join("")
+    .trim();
+}
+
+function mergeTextLists(items, incomingItems = []) {
+  const merged = new Map();
+  for (const item of [...(items || []), ...(incomingItems || [])]) {
+    const text = legacyText(item);
+    if (text) merged.set(text.toLocaleLowerCase("pt-BR"), text);
+  }
+  return [...merged.values()];
+}
+
+function sanitizeAppData(data) {
+  if (!data || typeof data !== "object") return data;
+  return {
+    ...data,
+    people: mergeTextLists(data.people),
+    sectors: mergeTextLists(data.sectors),
+    contractors: mergeTextLists(data.contractors)
+  };
+}
+
 function mergeAppData(current, incoming) {
   current = current && typeof current === "object" ? current : {};
   incoming = incoming && typeof incoming === "object" ? incoming : {};
@@ -76,9 +110,9 @@ function mergeAppData(current, incoming) {
     ...incoming,
     nextNumber: Math.max(Number(current.nextNumber || 0), Number(incoming.nextNumber || 0)),
     receipts: mergeBy(current.receipts, incoming.receipts, "id"),
-    people: mergeBy(current.people, incoming.people, "name"),
-    sectors: mergeBy(current.sectors, incoming.sectors, "name"),
-    contractors: mergeBy(current.contractors, incoming.contractors, "name"),
+    people: mergeTextLists(current.people, incoming.people),
+    sectors: mergeTextLists(current.sectors, incoming.sectors),
+    contractors: mergeTextLists(current.contractors, incoming.contractors),
     users: mergeBy(current.users, incoming.users, "login")
   };
 }
