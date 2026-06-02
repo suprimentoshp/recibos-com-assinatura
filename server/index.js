@@ -42,10 +42,33 @@ app.get("/api/app-data", (_req, res) => {
   res.json(JSON.parse(fs.readFileSync(dbPath, "utf8")));
 });
 
+function mergeBy(items, incomingItems, key) {
+  const merged = new Map((items || []).map((item) => [item[key], item]));
+  for (const item of incomingItems || []) {
+    merged.set(item[key], { ...merged.get(item[key]), ...item });
+  }
+  return [...merged.values()];
+}
+
+function mergeAppData(current, incoming) {
+  return {
+    ...current,
+    ...incoming,
+    nextNumber: Math.max(Number(current.nextNumber || 0), Number(incoming.nextNumber || 0)),
+    receipts: mergeBy(current.receipts, incoming.receipts, "id"),
+    people: mergeBy(current.people, incoming.people, "name"),
+    sectors: mergeBy(current.sectors, incoming.sectors, "name"),
+    contractors: mergeBy(current.contractors, incoming.contractors, "name"),
+    users: mergeBy(current.users, incoming.users, "login")
+  };
+}
+
 app.put("/api/app-data", (req, res) => {
   fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(dbPath, JSON.stringify(req.body || {}, null, 2));
-  res.json({ ok: true });
+  const current = fs.existsSync(dbPath) ? JSON.parse(fs.readFileSync(dbPath, "utf8")) : {};
+  const merged = mergeAppData(current, req.body || {});
+  fs.writeFileSync(dbPath, JSON.stringify(merged, null, 2));
+  res.json({ ok: true, nextNumber: merged.nextNumber });
 });
 
 app.get("/api/people", (_req, res) => res.json(listSimple("people")));

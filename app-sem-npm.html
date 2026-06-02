@@ -1345,11 +1345,19 @@
       const receipts = reportRows().filter((receipt) => reportSelectedReceiptIds.has(receipt.id));
       if (!receipts.length) return alert("Marque pelo menos um recibo no relatório para imprimir.");
       const printedAt = new Date().toISOString();
+      const previousPrintedAt = new Map(receipts.map((receipt) => [receipt.id, receipt.printedAt]));
       receipts.forEach((receipt) => {
         if (!receipt.canceled && !receipt.printedAt) receipt.printedAt = printedAt;
       });
       localStorage.setItem(KEY, JSON.stringify(db));
-      await saveRemoteData();
+      const saved = await saveRemoteData();
+      const confirmed = saved && await remoteHasReceipts(receipts.map((receipt) => receipt.id));
+      if (!confirmed) {
+        receipts.forEach((receipt) => receipt.printedAt = previousPrintedAt.get(receipt.id));
+        localStorage.setItem(KEY, JSON.stringify(db));
+        render();
+        return alert("Não foi possível confirmar o salvamento no servidor. A impressão foi cancelada para evitar recibos fora do histórico.");
+      }
       $("selectedPrintArea").innerHTML = selectedReceiptPrintPages(receipts);
       render();
       document.body.classList.add("print-selected");
@@ -1691,16 +1699,40 @@
       resetWorkDates();
       $("sectorName").value = "";
       $("form").querySelector(".submit").textContent = "Criar recibo";
-      save();
+      localStorage.setItem(KEY, JSON.stringify(db));
+      const saved = await saveRemoteData();
+      const confirmed = saved && (existing || await remoteHasReceipts([receipt.id]));
+      if (!confirmed) {
+        if (existing) {
+          await loadRemoteData({ preserveSelection: true });
+        } else {
+          db.receipts = db.receipts.filter((item) => item.id !== receipt.id);
+          db.nextNumber = Math.min(Number(receipt.receiptNumber), db.nextNumber);
+          selectedId = db.receipts[0]?.id || null;
+        }
+        localStorage.setItem(KEY, JSON.stringify(db));
+        render();
+        return alert("Não foi possível confirmar o salvamento no servidor. O recibo não foi criado. Verifique a conexão e tente novamente.");
+      }
+      render();
     };
 
-    $("print").onclick = () => {
+    $("print").onclick = async () => {
+      await loadRemoteData({ preserveSelection: true });
       const r = selected();
       if (!r) return;
       if (r.canceled) return alert("Recibos cancelados não devem ser impressos.");
+      const previousPrintedAt = r.printedAt;
       r.printedAt = new Date().toISOString();
       localStorage.setItem(KEY, JSON.stringify(db));
-      saveRemoteData();
+      const saved = await saveRemoteData();
+      const confirmed = saved && await remoteHasReceipts([r.id]);
+      if (!confirmed) {
+        r.printedAt = previousPrintedAt;
+        localStorage.setItem(KEY, JSON.stringify(db));
+        render();
+        return alert("Não foi possível confirmar o salvamento no servidor. A impressão foi cancelada para evitar recibos fora do histórico.");
+      }
       $("selectedPrintArea").innerHTML = selectedReceiptPrintPages([r]);
       render();
       document.body.classList.add("print-selected");
