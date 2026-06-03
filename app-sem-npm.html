@@ -478,6 +478,7 @@
         <div class="actions">
           <button class="secondary" id="backToReceipt" type="button">Home</button>
           <button class="primary" id="printReport" type="button">Imprimir lista filtrada</button>
+          <button class="secondary" id="printSelectedList" type="button">Imprimir lista marcada</button>
           <button class="secondary" id="printSelectedReceipts" type="button">Imprimir recibos marcados</button>
         </div>
       </div>
@@ -1570,8 +1571,8 @@
       `).join("") || "<span class='muted'>Sem dados para os filtros.</span>";
     }
 
-    function renderReport() {
-      const rows = reportRows();
+    function renderReport(options = {}) {
+      const rows = options.rows || reportRows();
       const validRows = rows.filter((r) => !r.canceled);
       const total = validRows.reduce((sum, r) => sum + Number(r.amountCents || 0), 0);
       $("reportCount").textContent = validRows.length;
@@ -1602,6 +1603,19 @@
           else reportSelectedReceiptIds.delete(checkbox.dataset.id);
         };
       });
+    }
+
+    async function printSelectedReportList() {
+      await loadRemoteData({ preserveSelection: true });
+      const rows = reportRows().filter((receipt) => reportSelectedReceiptIds.has(receipt.id));
+      if (!rows.length) return alert("Marque pelo menos um recibo no relatório para imprimir a lista.");
+      renderReport({ rows });
+      document.body.classList.add("print-report");
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove("print-report");
+        renderReport();
+      }, 500);
     }
 
     function render() {
@@ -1927,6 +1941,7 @@
     $("filterSector").onchange = render;
     $("toggleReport").onclick = () => setMode("report");
     $("backToReceipt").onclick = () => showHome();
+    $("printSelectedList").onclick = printSelectedReportList;
     $("printSelectedReceipts").onclick = printSelectedReportReceipts;
     ["reportEmissionStart", "reportEmissionEnd", "reportWorkStart", "reportWorkEnd", "reportSector", "reportName", "reportContractor"].forEach((id) => {
       $(id).oninput = renderReport;
