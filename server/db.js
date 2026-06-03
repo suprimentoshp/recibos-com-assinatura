@@ -1,10 +1,14 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const localDataDir = path.join(__dirname, "..", "data");
-export const dataDir = process.env.DATA_DIR || localDataDir;
+const isLocalExe = path.basename(process.execPath).toLowerCase() === "recibos-planalto.exe";
+const moduleDir = isLocalExe ? path.dirname(process.execPath) : path.dirname(fileURLToPath(import.meta.url));
+const localDataDir = path.join(moduleDir, "..", "data");
+const windowsDataDir = path.join(process.env.PROGRAMDATA || "C:\\ProgramData", "RecibosPlanalto", "data");
+const userDataDir = path.join(os.homedir(), ".recibos-planalto", "data");
+export const dataDir = process.env.DATA_DIR || (process.pkg || isLocalExe ? (process.platform === "win32" ? windowsDataDir : userDataDir) : localDataDir);
 export const dbPath = path.join(dataDir, "recibos.json");
 
 fs.mkdirSync(dataDir, { recursive: true });

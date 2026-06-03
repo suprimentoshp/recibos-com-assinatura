@@ -1,0 +1,6 @@
+{
+  "main": "release/sea/server.cjs",
+  "output": "release/sea/recibos-planalto.blob",
+  "disableExperimentalSEAWarning": true,
+  "useCodeCache": true
+}

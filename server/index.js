@@ -17,7 +17,9 @@ import {
 } from "./db.js";
 import { renderReceiptPdf } from "./pdf.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isLocalExe = path.basename(process.execPath).toLowerCase() === "recibos-planalto.exe";
+const moduleDir = isLocalExe ? path.dirname(process.execPath) : path.dirname(fileURLToPath(import.meta.url));
+const appRoot = process.pkg || isLocalExe ? path.dirname(process.execPath) : path.join(moduleDir, "..");
 const app = express();
 const port = Number(process.env.PORT || 3333);
 const allowedSectors = ["Recepção", "Copa", "Lumen", "Governança", "Manutenção"];
@@ -35,7 +37,7 @@ function asyncRoute(handler) {
 }
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, dataDir, databaseExists: fs.existsSync(dbPath) });
+  res.json({ ok: true, dataDir, dbPath, databaseExists: fs.existsSync(dbPath) });
 });
 
 app.get("/api/app-data", (_req, res) => {
@@ -48,17 +50,42 @@ app.get("/api/app-data", (_req, res) => {
 
 const backupsDir = path.join(dataDir, "backups");
 
+function backupName(prefix = "recibos") {
+  const stamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
+  return `${prefix}-${stamp}.json`;
+}
+
+function rotateBackups(limit = 120) {
+  if (!fs.existsSync(backupsDir)) return;
+  const backups = fs.readdirSync(backupsDir)
+    .filter((fileName) => fileName.endsWith(".json"))
+    .sort()
+    .reverse();
+  backups.slice(limit).forEach((fileName) => fs.unlinkSync(path.join(backupsDir, fileName)));
+}
+
+function writeBackup(fileName, content) {
+  fs.mkdirSync(backupsDir, { recursive: true });
+  fs.writeFileSync(path.join(backupsDir, fileName), content);
+  rotateBackups();
+}
+
+function ensureDailyBackup(currentContent) {
+  if (!currentContent) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const dailyName = `backup-diario-${today}.json`;
+  const dailyPath = path.join(backupsDir, dailyName);
+  if (!fs.existsSync(dailyPath)) writeBackup(dailyName, currentContent);
+}
+
 function persistAppData(data) {
   fs.mkdirSync(dataDir, { recursive: true });
   const nextContent = JSON.stringify(data, null, 2);
   const currentContent = fs.existsSync(dbPath) ? fs.readFileSync(dbPath, "utf8") : "";
   if (currentContent === nextContent) return;
   if (currentContent) {
-    fs.mkdirSync(backupsDir, { recursive: true });
-    const stamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
-    fs.writeFileSync(path.join(backupsDir, `recibos-${stamp}.json`), currentContent);
-    const backups = fs.readdirSync(backupsDir).sort().reverse();
-    backups.slice(50).forEach((fileName) => fs.unlinkSync(path.join(backupsDir, fileName)));
+    writeBackup(backupName("recibos-antes-da-gravacao"), currentContent);
+    ensureDailyBackup(currentContent);
   }
   const temporaryPath = `${dbPath}.tmp`;
   fs.writeFileSync(temporaryPath, nextContent);
@@ -199,13 +226,13 @@ app.get("/api/receipts/:id/pdf", (req, res) => {
 
 app.get("/api/backup", (_req, res) => {
   if (!fs.existsSync(dbPath)) return res.status(404).json({ error: "Banco ainda não criado" });
-  const fileName = `backup-recibos-${new Date().toISOString().slice(0, 10)}.json`;
+  const fileName = backupName("backup-manual-recibos");
   const backupPath = path.join(dataDir, fileName);
   fs.copyFileSync(dbPath, backupPath);
   res.download(backupPath, fileName);
 });
 
-const distDir = path.join(__dirname, "..", "dist");
+const distDir = path.join(appRoot, "dist");
 if (fs.existsSync(distDir)) {
   app.get("/sw.js", (_req, res) => {
     res.type("application/javascript");
@@ -221,7 +248,7 @@ if (fs.existsSync(distDir)) {
   app.get(["/", "/app-sem-npm.html"], (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.sendFile(path.join(__dirname, "..", "app-sem-npm.html"));
+    res.sendFile(path.join(appRoot, "app-sem-npm.html"));
   });
   app.use(express.static(distDir));
   app.get(/^\/(?!api).*/, (_req, res) => res.sendFile(path.join(distDir, "index.html")));
