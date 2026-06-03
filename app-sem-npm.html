@@ -927,6 +927,15 @@
       return db.receipts.find((item) => item.id === selectedId) || db.receipts[0] || null;
     }
 
+    function receiptNumberValue(receipt) {
+      return Number(String(receipt?.receiptNumber || "").replace(/\D/g, "")) || 0;
+    }
+
+    function newestReceiptsFirst(a, b) {
+      return receiptNumberValue(b) - receiptNumberValue(a)
+        || new Date(b.issuedAt || b.createdAt || 0) - new Date(a.issuedAt || a.createdAt || 0);
+    }
+
     function datesOf(receipt) {
       if (receipt.workPeriods && receipt.workPeriods.length) return receipt.workPeriods.map((period) => period.date).filter(Boolean);
       return (receipt.workDates && receipt.workDates.length ? receipt.workDates : [receipt.workDate]).filter(Boolean);
@@ -1549,7 +1558,7 @@
         const okName = !name || String(r.personName || "").toLowerCase().includes(name);
         const okContractor = !contractor || String(r.contractorName || "").toLowerCase().includes(contractor);
         return okEmission && okWorkDate && okSector && okName && okContractor;
-      });
+      }).sort(newestReceiptsFirst);
     }
 
     function groupRows(rows, key, valueFn = () => 1) {
@@ -1558,7 +1567,7 @@
         const label = row[key] || "Sem informação";
         map.set(label, (map.get(label) || 0) + valueFn(row));
       });
-      return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+      return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
     }
 
     function renderBars(id, entries, formatter = (value) => value) {
@@ -1634,7 +1643,7 @@
         const okDate = !dateFilter || datesOf(r).includes(dateFilter);
         const okSector = !sectorFilter || r.sectorName === sectorFilter;
         return okText && okDate && okSector;
-      });
+      }).sort(newestReceiptsFirst);
       $("list").innerHTML = rows.map((r) => `
         <button class="item ${r.id === selectedId ? "active" : ""}" data-id="${r.id}">
           <span>#${r.receiptNumber}</span><strong>${escapeHtml(r.personName)}</strong>
