@@ -1,6 +1,6 @@
 @echo off
 title Recibos Planalto - Servidor local
-cd /d "%~dp0"
+pushd "%~dp0"
 echo.
 echo Iniciando Recibos Planalto...
 echo.
@@ -14,5 +14,6 @@ echo.
 echo Para outros computadores, use:
 echo http://NOME-OU-IP-DO-SERVIDOR:3333
 echo.
-recibos-planalto.exe
+"%~dp0recibos-planalto.exe"
+popd
 pause
