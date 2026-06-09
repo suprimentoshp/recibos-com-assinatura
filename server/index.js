@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { exec } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import QRCode from "qrcode";
@@ -259,6 +260,31 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: err.message || "Erro interno" });
 });
 
-app.listen(port, "0.0.0.0", () => {
-  console.log(`API de recibos em http://localhost:${port}`);
+function openLocalBrowser(url) {
+  if (!isLocalExe || process.env.RECIBOS_NO_BROWSER === "1") return;
+  const command = process.platform === "win32"
+    ? `start "" "${url}"`
+    : process.platform === "darwin"
+      ? `open "${url}"`
+      : `xdg-open "${url}"`;
+  exec(command, () => {});
+}
+
+const server = app.listen(port, "0.0.0.0", () => {
+  const localUrl = `http://localhost:${port}`;
+  console.log(`Recibos Planalto iniciado em ${localUrl}`);
+  console.log(`Banco de dados: ${dbPath}`);
+  openLocalBrowser(localUrl);
+});
+
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`A porta ${port} ja esta em uso. Feche outra copia do app ou reinicie o computador.`);
+  } else {
+    console.error("Nao foi possivel iniciar o servidor local:", error);
+  }
+  if (isLocalExe) {
+    console.error("Esta janela ficara aberta para voce conseguir ler o erro.");
+    setInterval(() => {}, 60_000);
+  }
 });

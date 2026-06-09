@@ -34,11 +34,13 @@ Depois execute:
 C:\RecibosPlanalto\recibos-planalto.exe
 ```
 
-O app ficara disponivel no computador servidor em:
+O navegador deve abrir automaticamente. Se nao abrir, acesse manualmente:
 
 ```text
 http://localhost:3333
 ```
+
+Mantenha a janela do executavel aberta enquanto estiver usando o sistema.
 
 Na rede interna, outros computadores acessam usando o IP do servidor:
 
