@@ -114,14 +114,13 @@ function receiptDateValue(receipt) {
   return new Date(receipt?.issuedAt || receipt?.createdAt || 0).getTime() || 0;
 }
 
-function ensureUniqueReceiptNumbers(receipts, nextNumberCandidate) {
-  const ordered = [...(receipts || [])].sort((a, b) => {
-    return receiptNumberValue(a) - receiptNumberValue(b)
-      || receiptDateValue(a) - receiptDateValue(b);
-  });
-  const highestNumber = Math.max(firstReceiptNumber - 1, ...ordered.map(receiptNumberValue));
-  let nextNumber = Math.max(Number(nextNumberCandidate || 0), highestNumber + 1, firstReceiptNumber);
+function normalizeExistingReceiptNumbers(receipts) {
+  const ordered = [...(receipts || [])].sort((a, b) =>
+    receiptNumberValue(a) - receiptNumberValue(b)
+      || receiptDateValue(a) - receiptDateValue(b)
+  );
   const used = new Set();
+  let nextNumber = firstReceiptNumber;
   for (const receipt of ordered) {
     const currentNumber = receiptNumberValue(receipt);
     if (currentNumber >= firstReceiptNumber && !used.has(currentNumber)) {
@@ -135,6 +134,49 @@ function ensureUniqueReceiptNumbers(receipts, nextNumberCandidate) {
     nextNumber += 1;
   }
   const maxUsed = Math.max(firstReceiptNumber - 1, ...[...used]);
+  return { receipts: ordered, maxUsed };
+}
+
+function mergeReceiptsWithServerNumbers(currentReceipts = [], incomingReceipts = [], nextNumberCandidate) {
+  if (!(currentReceipts || []).length) {
+    const normalizedIncoming = normalizeExistingReceiptNumbers(incomingReceipts);
+    const receipts = [...normalizedIncoming.receipts].sort((a, b) =>
+      receiptNumberValue(b) - receiptNumberValue(a)
+        || receiptDateValue(b) - receiptDateValue(a)
+    );
+    const highestNumber = Math.max(firstReceiptNumber - 1, ...receipts.map(receiptNumberValue));
+    return {
+      receipts,
+      nextNumber: Math.max(Number(nextNumberCandidate || 0), highestNumber + 1, firstReceiptNumber)
+    };
+  }
+  const normalizedCurrent = normalizeExistingReceiptNumbers(currentReceipts);
+  const currentById = new Map(normalizedCurrent.receipts.map((receipt) => [receipt.id, receipt]));
+  const used = new Set(normalizedCurrent.receipts.map(receiptNumberValue).filter(Boolean));
+  let nextNumber = Math.max(Number(nextNumberCandidate || 0), normalizedCurrent.maxUsed + 1, firstReceiptNumber);
+
+  for (const incoming of incomingReceipts || []) {
+    if (!incoming?.id) continue;
+    const existing = currentById.get(incoming.id);
+    if (existing) {
+      const originalNumber = existing.receiptNumber;
+      Object.assign(existing, incoming, { receiptNumber: originalNumber });
+      continue;
+    }
+    while (used.has(nextNumber)) nextNumber += 1;
+    currentById.set(incoming.id, {
+      ...incoming,
+      receiptNumber: formatReceiptNumber(nextNumber)
+    });
+    used.add(nextNumber);
+    nextNumber += 1;
+  }
+
+  const receipts = [...currentById.values()].sort((a, b) =>
+    receiptNumberValue(b) - receiptNumberValue(a)
+      || receiptDateValue(b) - receiptDateValue(a)
+  );
+  const maxUsed = Math.max(firstReceiptNumber - 1, ...receipts.map(receiptNumberValue));
   return { receipts, nextNumber: Math.max(nextNumber, maxUsed + 1) };
 }
 
@@ -172,8 +214,9 @@ function sanitizeAppData(data) {
 function mergeAppData(current, incoming) {
   current = current && typeof current === "object" ? current : {};
   incoming = incoming && typeof incoming === "object" ? incoming : {};
-  const numbered = ensureUniqueReceiptNumbers(
-    mergeBy(current.receipts, incoming.receipts, "id"),
+  const numbered = mergeReceiptsWithServerNumbers(
+    current.receipts,
+    incoming.receipts,
     Math.max(Number(current.nextNumber || 0), Number(incoming.nextNumber || 0))
   );
   return sanitizeAppData({
