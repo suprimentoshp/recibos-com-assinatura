@@ -662,11 +662,23 @@
     async function saveRemoteData() {
       if (!HAS_SERVER) return false;
       try {
+        const previousSelectedId = selectedId;
         const response = await fetch("/api/app-data", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(db)
         });
+        if (response.ok) {
+          const payload = await response.json().catch(() => null);
+          if (payload?.data) {
+            db = payload.data;
+            db.receipts = db.receipts || [];
+            if (db.receipts.some((receipt) => receipt.id === previousSelectedId)) selectedId = previousSelectedId;
+            else selectedId = db.receipts[0]?.id || null;
+            if (currentUser) currentUser = (db.users || []).find((user) => user.login === currentUser.login) || currentUser;
+            localStorage.setItem(KEY, JSON.stringify(db));
+          }
+        }
         return response.ok;
       } catch {
         return false;
@@ -1406,7 +1418,8 @@
         alert("Não foi possível confirmar o salvamento no servidor. A impressão foi cancelada para evitar recibos fora do histórico. Tente novamente.");
         return;
       }
-      $("bulkPrintArea").innerHTML = bulkReceiptPrintPages(receipts);
+      const savedReceipts = receipts.map((receipt) => db.receipts.find((item) => item.id === receipt.id) || receipt);
+      $("bulkPrintArea").innerHTML = bulkReceiptPrintPages(savedReceipts);
       render();
       document.body.classList.add("print-bulk");
       window.print();

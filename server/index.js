@@ -23,6 +23,7 @@ const moduleDir = isLocalExe ? path.dirname(process.execPath) : path.dirname(fil
 const appRoot = process.pkg || isLocalExe ? path.dirname(process.execPath) : path.join(moduleDir, "..");
 const app = express();
 const port = Number(process.env.PORT || 3333);
+const firstReceiptNumber = 100400;
 const allowedSectors = ["Recepção", "Copa", "Lumen", "Governança", "Manutenção"];
 const allowedContractors = ["Walnisa", "Fernando", "João", "Ana Paula", "Jean", "Felipe", "Marcio", "Daniel"];
 
@@ -101,6 +102,42 @@ function mergeBy(items, incomingItems, key) {
   return [...merged.values()];
 }
 
+function receiptNumberValue(receipt) {
+  return Number(String(receipt?.receiptNumber || "").replace(/\D/g, "")) || 0;
+}
+
+function formatReceiptNumber(value) {
+  return String(value).padStart(6, "0");
+}
+
+function receiptDateValue(receipt) {
+  return new Date(receipt?.issuedAt || receipt?.createdAt || 0).getTime() || 0;
+}
+
+function ensureUniqueReceiptNumbers(receipts, nextNumberCandidate) {
+  const ordered = [...(receipts || [])].sort((a, b) => {
+    return receiptNumberValue(a) - receiptNumberValue(b)
+      || receiptDateValue(a) - receiptDateValue(b);
+  });
+  const highestNumber = Math.max(firstReceiptNumber - 1, ...ordered.map(receiptNumberValue));
+  let nextNumber = Math.max(Number(nextNumberCandidate || 0), highestNumber + 1, firstReceiptNumber);
+  const used = new Set();
+  for (const receipt of ordered) {
+    const currentNumber = receiptNumberValue(receipt);
+    if (currentNumber >= firstReceiptNumber && !used.has(currentNumber)) {
+      used.add(currentNumber);
+      receipt.receiptNumber = formatReceiptNumber(currentNumber);
+      continue;
+    }
+    while (used.has(nextNumber)) nextNumber += 1;
+    receipt.receiptNumber = formatReceiptNumber(nextNumber);
+    used.add(nextNumber);
+    nextNumber += 1;
+  }
+  const maxUsed = Math.max(firstReceiptNumber - 1, ...[...used]);
+  return { receipts, nextNumber: Math.max(nextNumber, maxUsed + 1) };
+}
+
 function legacyText(item) {
   if (typeof item === "string") return item.trim();
   if (!item || typeof item !== "object") return "";
@@ -135,11 +172,15 @@ function sanitizeAppData(data) {
 function mergeAppData(current, incoming) {
   current = current && typeof current === "object" ? current : {};
   incoming = incoming && typeof incoming === "object" ? incoming : {};
+  const numbered = ensureUniqueReceiptNumbers(
+    mergeBy(current.receipts, incoming.receipts, "id"),
+    Math.max(Number(current.nextNumber || 0), Number(incoming.nextNumber || 0))
+  );
   return sanitizeAppData({
     ...current,
     ...incoming,
-    nextNumber: Math.max(Number(current.nextNumber || 0), Number(incoming.nextNumber || 0)),
-    receipts: mergeBy(current.receipts, incoming.receipts, "id"),
+    nextNumber: numbered.nextNumber,
+    receipts: numbered.receipts,
     people: mergeTextLists(current.people, incoming.people),
     sectors: mergeTextLists(current.sectors, incoming.sectors),
     contractors: mergeTextLists(current.contractors, incoming.contractors),
@@ -151,7 +192,7 @@ app.put("/api/app-data", (req, res) => {
   const current = fs.existsSync(dbPath) ? JSON.parse(fs.readFileSync(dbPath, "utf8")) : {};
   const merged = mergeAppData(current, req.body || {});
   persistAppData(merged);
-  res.json({ ok: true, nextNumber: merged.nextNumber });
+  res.json({ ok: true, nextNumber: merged.nextNumber, data: merged });
 });
 
 app.get("/api/people", (_req, res) => res.json(listSimple("people")));
