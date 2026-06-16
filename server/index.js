@@ -1,4 +1,5 @@
 import cors from "cors";
+import crypto from "node:crypto";
 import express from "express";
 import { exec } from "node:child_process";
 import fs from "node:fs";
@@ -17,6 +18,12 @@ import {
   saveSignature
 } from "./db.js";
 import { renderReceiptPdf } from "./pdf.js";
+import {
+  persistLockedAppState,
+  readAppState,
+  storageInfo,
+  withAppStateLock
+} from "./storage.js";
 
 const isLocalExe = path.basename(process.execPath).toLowerCase() === "recibos-planalto.exe";
 const moduleDir = isLocalExe ? path.dirname(process.execPath) : path.dirname(fileURLToPath(import.meta.url));
@@ -38,17 +45,18 @@ function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
 
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, dataDir, dbPath, databaseExists: fs.existsSync(dbPath) });
-});
+app.get("/api/health", asyncRoute(async (_req, res) => {
+  const storage = await storageInfo();
+  res.json({ ok: true, dataDir, dbPath, databaseExists: fs.existsSync(dbPath), storage });
+}));
 
-app.get("/api/app-data", (_req, res) => {
-  if (!fs.existsSync(dbPath)) return res.json(null);
-  const stored = JSON.parse(fs.readFileSync(dbPath, "utf8"));
+app.get("/api/app-data", asyncRoute(async (_req, res) => {
+  const stored = await readAppState(dbPath);
+  if (!stored) return res.json(null);
   const repaired = sanitizeAppData(stored);
-  persistAppData(repaired);
+  persistJsonSnapshot(repaired);
   res.json(repaired);
-});
+}));
 
 const backupsDir = path.join(dataDir, "backups");
 
@@ -80,7 +88,7 @@ function ensureDailyBackup(currentContent) {
   if (!fs.existsSync(dailyPath)) writeBackup(dailyName, currentContent);
 }
 
-function persistAppData(data) {
+function persistJsonSnapshot(data) {
   fs.mkdirSync(dataDir, { recursive: true });
   const nextContent = JSON.stringify(data, null, 2);
   const currentContent = fs.existsSync(dbPath) ? fs.readFileSync(dbPath, "utf8") : "";
@@ -231,12 +239,89 @@ function mergeAppData(current, incoming) {
   });
 }
 
-app.put("/api/app-data", (req, res) => {
-  const current = fs.existsSync(dbPath) ? JSON.parse(fs.readFileSync(dbPath, "utf8")) : {};
-  const merged = mergeAppData(current, req.body || {});
-  persistAppData(merged);
-  res.json({ ok: true, nextNumber: merged.nextNumber, data: merged });
-});
+function stableHash(value) {
+  return crypto.createHash("sha256").update(JSON.stringify(value || {})).digest("hex").slice(0, 16);
+}
+
+function receiptUser(receipt, fallbackUser) {
+  return receipt?.editedBy || receipt?.canceledBy || receipt?.printedBy || receipt?.createdBy || fallbackUser || "";
+}
+
+function receiptEventType(previous, next) {
+  if (!previous) return "receipt_created";
+  if (!previous.canceled && next.canceled) return "receipt_canceled";
+  if (!previous.printedAt && next.printedAt) return "receipt_printed";
+  if (!previous.signature && next.signature) return "receipt_signed";
+  if (stableHash(previous) !== stableHash(next)) return "receipt_edited";
+  return "";
+}
+
+function buildReceiptEvents(currentReceipts = [], mergedReceipts = [], incoming = {}) {
+  const previousById = new Map((currentReceipts || []).map((receipt) => [receipt.id, receipt]));
+  const incomingIds = new Set((incoming.receipts || []).map((receipt) => receipt.id));
+  const events = [];
+  for (const receipt of mergedReceipts || []) {
+    if (!receipt?.id || !incomingIds.has(receipt.id)) continue;
+    const previous = previousById.get(receipt.id);
+    const eventType = receiptEventType(previous, receipt);
+    if (!eventType) continue;
+    const payload = {
+      receipt,
+      previousReceipt: previous || null,
+      receivedAt: new Date().toISOString()
+    };
+    events.push({
+      clientEventId: `${eventType}:${receipt.id}:${stableHash(payload)}`,
+      eventType,
+      receiptId: String(receipt.id),
+      receiptNumber: receipt.receiptNumber || "",
+      userLogin: receiptUser(receipt, incoming.currentUser),
+      payload
+    });
+  }
+  return events;
+}
+
+app.put("/api/app-data", asyncRoute(async (req, res) => {
+  const incoming = req.body || {};
+  const result = await withAppStateLock(dbPath, async (currentState, pgClient) => {
+    const current = currentState || {};
+    const merged = mergeAppData(current, incoming);
+    const events = buildReceiptEvents(current.receipts, merged.receipts, incoming);
+    if (pgClient) {
+      await persistLockedAppState({ client: pgClient, data: merged, events });
+    } else {
+      persistJsonSnapshot(merged);
+    }
+    return { merged, events };
+  });
+  persistJsonSnapshot(result.merged);
+  const storage = await storageInfo();
+  res.json({
+    ok: true,
+    nextNumber: result.merged.nextNumber,
+    data: result.merged,
+    storage,
+    eventsSaved: result.events.length
+  });
+}));
+
+app.post("/api/sync", asyncRoute(async (req, res) => {
+  const incoming = req.body?.data || req.body || {};
+  const result = await withAppStateLock(dbPath, async (currentState, pgClient) => {
+    const current = currentState || {};
+    const merged = mergeAppData(current, incoming);
+    const events = buildReceiptEvents(current.receipts, merged.receipts, incoming);
+    if (pgClient) {
+      await persistLockedAppState({ client: pgClient, data: merged, events });
+    } else {
+      persistJsonSnapshot(merged);
+    }
+    return { merged, events };
+  });
+  persistJsonSnapshot(result.merged);
+  res.json({ ok: true, nextNumber: result.merged.nextNumber, eventsSaved: result.events.length });
+}));
 
 app.get("/api/people", (_req, res) => res.json(listSimple("people")));
 app.get("/api/sectors", (_req, res) => res.json(listSimple("sectors")));
